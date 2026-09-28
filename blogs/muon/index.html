@@ -19,8 +19,8 @@
     <meta property="og:video:type" content="video/mp4" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://origin.bio/blogs/muon/assets/optimizer_og.png" />
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="icon" href="/assets/favicon.png" type="image/png">
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="icon" href="../../assets/favicon.png" type="image/png">
     <script>
         window.MathJax = {
             tex: {
@@ -50,8 +50,8 @@
     </div>
 
     <header>
-        <a href="/" class="logo-link">
-            <img src="/assets/Origin%20logo+text%20(blue%20on%20transparent).png" alt="Origin Logo" class="header-logo">
+        <a href="../../" class="logo-link">
+            <img src="../../assets/Origin%20logo+text%20(blue%20on%20transparent).png" alt="Origin Logo" class="header-logo">
         </a>
     </header>
 
@@ -94,7 +94,7 @@
                 <article class="blog-article">
                     <figure class="blog-image" style="margin-top: 0;">
                         <video autoplay muted loop playsinline preload="auto">
-                            <source src="/blogs/muon/assets/optimizer_gif.mp4" type="video/mp4">
+                            <source src="assets/optimizer_gif.mp4" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
                     </figure>
@@ -169,7 +169,7 @@
                         ~100k vocabulary is rarely seen.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/zipfs_law.png"
+                        <img src="assets/zipfs_law.png"
                             alt="Zipf's law: token frequency vs rank on linear and log-log scales" loading="lazy" />
                         <figcaption>Zipf&rsquo;s law on a linear (left) and log-log (right) scale. The
                             straight line on the log-log plot is the signature of a power-law
@@ -183,11 +183,11 @@
 
                     <figure class="blog-image">
                         <div style="display: flex; gap: 0.5rem; justify-content: center; align-items: center; max-width: 600px; margin: 0 auto;">
-                            <img src="/blogs/muon/assets/nucleotide_K562_pie.png"
+                            <img src="assets/nucleotide_K562_pie.png"
                                 alt="Nucleotide distribution — K562" loading="lazy" style="width: 33% !important; max-width: 33% !important;" />
-                            <img src="/blogs/muon/assets/nucleotide_HepG2_pie.png"
+                            <img src="assets/nucleotide_HepG2_pie.png"
                                 alt="Nucleotide distribution — HepG2" loading="lazy" style="width: 33% !important; max-width: 33% !important;" />
-                            <img src="/blogs/muon/assets/nucleotide_SKNSH_pie.png"
+                            <img src="assets/nucleotide_SKNSH_pie.png"
                                 alt="Nucleotide distribution — SK-N-SH" loading="lazy" style="width: 33% !important; max-width: 33% !important;" />
                         </div>
                         <figcaption>Nucleotide frequencies across the three cell lines in
@@ -773,7 +773,7 @@
                             learning rate. We track validation perplexity throughout training as a highly interpretable and sensitive measure of model capacity<span
                             class="sidenote-group"><sup class="sidenote-ref">8</sup><span
                             class="sidenote-card side-left">The model is a multifunctional architecture
-                            similar to <a href="/introducing-axis/">Axis</a>, trained on a set of
+                            similar to <a href="../../introducing-axis/">Axis</a>, trained on a set of
                             candidate cis-regulatory elements (cCREs) from the ENCODE v4 registry that
                             are cell-type-specific to one of three cell lines: K562, HepG2, and
                             SK-N-SH. Training was limited to 20 epochs due to compute constraints;
@@ -792,7 +792,7 @@
                         <p>The line plots below illustrate the final validation perplexity (at the last checkpoint) for each optimizer pair as a function of the learning rate (log scale). Lower perplexity indicates superior probability mass placement on the target sequence.</p>
 
                         <figure class="blog-image">
-                            <img src="/blogs/muon/assets/comparison_AdamH_vs_AdamW.png"
+                            <img src="assets/comparison_AdamH_vs_AdamW.png"
                                 alt="Final test perplexity: AdamH vs AdamW" loading="lazy" />
                             <figcaption>Final test perplexity for AdamH (blue) and AdamW (red) across learning rates.</figcaption>
                         </figure>
@@ -800,7 +800,7 @@
                         <p>For Adam variants, applying the Hyperball constraint improves peak performance but sharply narrows the stable operating window. AdamH achieves the absolute lowest overall perplexity for the Adam family (&sim;2.485) at a moderate learning rate of &sim;\(5.69 \times 10^{-3}\). However, AdamW proves dramatically more resilient at the extremes. At the lowest learning rate (&sim;\(9.00 \times 10^{-5}\)), AdamW's independent weight decay slowly regularizes the network without disrupting the coordinate-wise updates, maintaining a lead (&sim;2.534 vs. &sim;2.566). Conversely, at the highest rate (&sim;\(2.27 \times 10^{-2}\)), AdamH degrades sharply (&sim;2.574); its rigidly fixed norm overrides the natural decay in step size that occurs when weights grow, causing the optimizer to catastrophically bounce around the local minimum, while AdamW remains relatively stable (&sim;2.526).</p>
                         
                         <figure class="blog-image">
-                            <img src="/blogs/muon/assets/comparison_MuonH_vs_MuonW.png"
+                            <img src="assets/comparison_MuonH_vs_MuonW.png"
                                 alt="Final test perplexity: MuonH vs MuonW" loading="lazy" />
                             <figcaption>Final test perplexity for MuonH (blue) and MuonW (red) across learning rates.</figcaption>
                         </figure>
@@ -864,52 +864,52 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 100%;">
                                 <div style="text-align: center;">
                                     <p style="margin: 0 0 0.25rem; font-size: 0.85em; font-weight: 600; color: #78716c;">By checkpoint</p>
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_9em05.png"
+                                    <img src="assets/perplexity_progression_lr_9em05.png"
                                         alt="Perplexity progression — lr≈9×10⁻⁵ (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
                                     <p style="margin: 0 0 0.25rem; font-size: 0.85em; font-weight: 600; color: #78716c;">By FLOPS</p>
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_9em05_flops.png"
+                                    <img src="assets/perplexity_progression_lr_9em05_flops.png"
                                         alt="Perplexity progression — lr≈9×10⁻⁵ (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">lr &approx; 9.00&times;10⁻⁵</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p00035857.png"
+                                    <img src="assets/perplexity_progression_lr_0p00035857.png"
                                         alt="Perplexity progression — lr≈3.59×10⁻⁴ (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p00035857_flops.png"
+                                    <img src="assets/perplexity_progression_lr_0p00035857_flops.png"
                                         alt="Perplexity progression — lr≈3.59×10⁻⁴ (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">lr &approx; 3.59&times;10⁻⁴</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p0014287.png"
+                                    <img src="assets/perplexity_progression_lr_0p0014287.png"
                                         alt="Perplexity progression — lr≈1.43×10⁻³ (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p0014287_flops.png"
+                                    <img src="assets/perplexity_progression_lr_0p0014287_flops.png"
                                         alt="Perplexity progression — lr≈1.43×10⁻³ (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">lr &approx; 1.43&times;10⁻³</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p0056924.png"
+                                    <img src="assets/perplexity_progression_lr_0p0056924.png"
                                         alt="Perplexity progression — lr≈5.69×10⁻³ (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p0056924_flops.png"
+                                    <img src="assets/perplexity_progression_lr_0p0056924_flops.png"
                                         alt="Perplexity progression — lr≈5.69×10⁻³ (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">lr &approx; 5.69&times;10⁻³</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p022681.png"
+                                    <img src="assets/perplexity_progression_lr_0p022681.png"
                                         alt="Perplexity progression — lr≈2.27×10⁻² (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_lr_0p022681_flops.png"
+                                    <img src="assets/perplexity_progression_lr_0p022681_flops.png"
                                         alt="Perplexity progression — lr≈2.27×10⁻² (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">lr &approx; 2.27&times;10⁻²</p>
@@ -930,42 +930,42 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 100%;">
                                 <div style="text-align: center;">
                                     <p style="margin: 0 0 0.25rem; font-size: 0.85em; font-weight: 600; color: #78716c;">By checkpoint</p>
-                                    <img src="/blogs/muon/assets/perplexity_progression_AdamH.png"
+                                    <img src="assets/perplexity_progression_AdamH.png"
                                         alt="Perplexity progression — AdamH (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
                                     <p style="margin: 0 0 0.25rem; font-size: 0.85em; font-weight: 600; color: #78716c;">By FLOPS</p>
-                                    <img src="/blogs/muon/assets/perplexity_progression_AdamH_flops.png"
+                                    <img src="assets/perplexity_progression_AdamH_flops.png"
                                         alt="Perplexity progression — AdamH (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">AdamH</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_AdamW.png"
+                                    <img src="assets/perplexity_progression_AdamW.png"
                                         alt="Perplexity progression — AdamW (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_AdamW_flops.png"
+                                    <img src="assets/perplexity_progression_AdamW_flops.png"
                                         alt="Perplexity progression — AdamW (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">AdamW</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_MuonH.png"
+                                    <img src="assets/perplexity_progression_MuonH.png"
                                         alt="Perplexity progression — MuonH (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_MuonH_flops.png"
+                                    <img src="assets/perplexity_progression_MuonH_flops.png"
                                         alt="Perplexity progression — MuonH (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">MuonH</p>
 
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_MuonW.png"
+                                    <img src="assets/perplexity_progression_MuonW.png"
                                         alt="Perplexity progression — MuonW (checkpoint)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <div style="text-align: center;">
-                                    <img src="/blogs/muon/assets/perplexity_progression_MuonW_flops.png"
+                                    <img src="assets/perplexity_progression_MuonW_flops.png"
                                         alt="Perplexity progression — MuonW (FLOPS)" loading="lazy" style="width: 100%;" />
                                 </div>
                                 <p style="grid-column: 1 / -1; margin: 0; font-size: 0.9em; color: #57534e; text-align: center;">MuonW</p>
@@ -986,7 +986,7 @@
                             <h3 id="sec-training-results">Training Dynamics</h3>
                         </summary>
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/loss_curves_nucleotide_loss.png"
+                        <img src="assets/loss_curves_nucleotide_loss.png"
                             alt="Learning curves for nucleotide loss" loading="lazy" />
                         <figcaption>Learning curves for the most optimal runs for all 4 optimizer combinations:
                             AdamW, AdamH, MuonW, MuonH. Loss axis is nucleotide cross-entropy loss.</figcaption>
@@ -997,10 +997,10 @@
                     <h4 class="blog-subheading">Learning rate sweep analysis</h4>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/adam_comparison.png"
+                        <img src="assets/adam_comparison.png"
                             alt="Comparison of Adam and AdamH diagnostics" loading="lazy"
                             style="margin-bottom: 0.5rem;" />
-                        <img src="/blogs/muon/assets/muon_comparison.png"
+                        <img src="assets/muon_comparison.png"
                             alt="Comparison of Muon and MuonH diagnostics" loading="lazy" />
                         <figcaption>Sweep losses for Top: AdamW vs AdamH, Bottom: MuonW vs MuonH
                         </figcaption>
@@ -1021,9 +1021,9 @@
                     <p>For Adam, the lowest point is with Hyperball at \(\eta \approx 5.69 \times 10^{-3}\) (compared to AdamW at \(\approx 3.59 \times 10^{-4}\)). For Muon, the lowest point is generally achieved with weight decay at the higher end of tested learning rates, scaling up to \(\eta \approx 5.69 \times 10^{-3}\) (although Hyperball reaches its optimum earlier at \(\eta \approx 1.43 \times 10^{-3}\)). This disparity highlights a key distinction: while Adam's coordinate-wise updates become highly unstable at large learning rates, Muon's whitened updates, when unconstrained by a fixed norm, can safely exploit much larger step sizes to drive down the loss.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/adam_heatmap.png" alt="Adam sweep summary"
+                        <img src="assets/adam_heatmap.png" alt="Adam sweep summary"
                             loading="lazy" style="margin-bottom: 0.5rem;" />
-                        <img src="/blogs/muon/assets/muon_heatmap.png" alt="Muon sweep summary"
+                        <img src="assets/muon_heatmap.png" alt="Muon sweep summary"
                             loading="lazy" />
                         <figcaption>Heatmap of Top: AdamW vs AdamH, Bottom: MuonW vs MuonH</figcaption>
                     </figure>
@@ -1056,9 +1056,9 @@
                     <h4 class="blog-subheading">Cross-optimizer comparison</h4>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/muonw_adamh_heatmap.png"
+                        <img src="assets/muonw_adamh_heatmap.png"
                         alt="MuonW vs AdamH heatmap across widths" loading="lazy" />
-                        <img src="/blogs/muon/assets/muonw_adamh_comparison.png"
+                        <img src="assets/muonw_adamh_comparison.png"
                             alt="MuonW vs AdamH loss curves across widths" loading="lazy"
                             style="margin-bottom: 0.5rem;" />
                         <figcaption>Top: Heatmap of % advantage (green = AdamH better, red = MuonW better).
@@ -1104,9 +1104,9 @@
                     </ul>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/svd_entropy_mean_ffn_L3.png"
+                        <img src="assets/svd_entropy_mean_ffn_L3.png"
                             alt="SVD Entropy Mean for FFN Layer 3" loading="lazy" style="margin-bottom: 0.5rem;" />
-                        <img src="/blogs/muon/assets/pr_mean_ffn_L3.png"
+                        <img src="assets/pr_mean_ffn_L3.png"
                             alt="Participation Ratio Mean for FFN Layer 3" loading="lazy" />
                         <figcaption>Spectral metrics for FFN Layer 3. <strong>Blue:</strong> MuonW,
                             <strong>Red:</strong> MuonH, <strong>Orange:</strong> AdamW,
@@ -1218,11 +1218,11 @@
                     </p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/weight_frobenius_norm.png"
+                        <img src="assets/weight_frobenius_norm.png"
                             alt="Global Weight Frobenius Norm" loading="lazy" style="margin-bottom: 0.5rem;" />
-                        <img src="/blogs/muon/assets/delta_W_mean_frobenius_norm.png"
+                        <img src="assets/delta_W_mean_frobenius_norm.png"
                             alt="Global Update Mean Frobenius Norm" loading="lazy" style="margin-bottom: 0.5rem;" />
-                        <img src="/blogs/muon/assets/relative_step_size.png"
+                        <img src="assets/relative_step_size.png"
                             alt="Global Relative Step Size" loading="lazy" />
                         <figcaption>Global training dynamics. Top: Weight Frobenius Norm. Middle: Update Mean Frobenius
                             Norm. Bottom: Relative Step
@@ -1258,7 +1258,7 @@
                         if the ranking of classes doesn't change.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon/assets/OutputLogits.png"
+                        <img src="assets/OutputLogits.png"
                             alt="Output Logits Distribution" loading="lazy" />
                         <figcaption>Distribution of output logits during training. MuonW (Blue) logits grow
                             significantly larger than MuonH (Red), leading to sharper softmax distributions.
@@ -1866,7 +1866,7 @@
         <div class="copyright">© 2026 Origin Bio</div>
     </footer>
 
-    <script src="/js/script.js"></script>
+    <script src="../../js/script.js"></script>
     <script>
         /* Sidenote behavior:
            - mobile/tablet: tap footnote to toggle

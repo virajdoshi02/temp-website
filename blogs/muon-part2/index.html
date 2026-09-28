@@ -17,8 +17,8 @@
     <meta property="og:image:secure_url" content="https://origin.bio/blogs/muon-part2/assets/fig_head_to_head.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://origin.bio/blogs/muon-part2/assets/fig_head_to_head.png" />
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="icon" href="/assets/favicon.png" type="image/png">
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="icon" href="../../assets/favicon.png" type="image/png">
     <script>
         window.MathJax = {
             tex: {
@@ -40,8 +40,8 @@
     </div>
 
     <header>
-        <a href="/" class="logo-link">
-            <img src="/assets/Origin%20logo+text%20(blue%20on%20transparent).png" alt="Origin Logo" class="header-logo">
+        <a href="../../" class="logo-link">
+            <img src="../../assets/Origin%20logo+text%20(blue%20on%20transparent).png" alt="Origin Logo" class="header-logo">
         </a>
     </header>
 
@@ -111,7 +111,7 @@
                             <h3 id="sec-question">The Open Question from Part 1</h3>
                         </summary>
 
-                    <p>In <a href="/blogs/muon/">Part 1</a>, we showed that MuonW reaches target validation
+                    <p>In <a href="../muon/">Part 1</a>, we showed that MuonW reaches target validation
                         perplexity with roughly 37% fewer FLOPs than AdamH. We dissected the spectral mechanics
                         of why: Muon&rsquo;s Newton-Schulz whitening distributes learned information across all
                         singular value directions, while Adam concentrates it in fewer dominant modes.</p>
@@ -140,7 +140,7 @@
                         </summary>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/loss_curves_nucleotide_loss.png"
+                        <img src="assets/loss_curves_nucleotide_loss.png"
                             alt="Validation perplexity curves converging"
                             loading="lazy" />
                         <figcaption>Validation perplexity for the best learning rate per optimizer (from Part 1).
@@ -193,7 +193,7 @@
                     <h4 class="blog-subheading">What we observed</h4>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_convergence.png"
+                        <img src="assets/fig_convergence.png"
                             alt="Biological convergence across training"
                             loading="lazy" />
                         <figcaption>(A) Motif abundance (Pearson r of per-TF hit rates vs reference):
@@ -219,7 +219,7 @@
                     <p>The full learning rate sweep confirms this is not cherry-picked from one LR:</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_metrics_vs_lr.png"
+                        <img src="assets/fig_metrics_vs_lr.png"
                             alt="Biological metrics across LR sweep"
                             loading="lazy" />
                         <figcaption>Biological quality at the final checkpoint across all 5 learning rates.
@@ -273,7 +273,7 @@
                     <h4 class="blog-subheading">What we observed</h4>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_abundance_vs_grammar.png"
+                        <img src="assets/fig_abundance_vs_grammar.png"
                             alt="Abundance vs grammar convergence"
                             loading="lazy" />
                         <figcaption>Abundance (orange, Pearson r) vs grammar (purple dashed, Mantel r) for each
@@ -302,7 +302,7 @@
                         robustness, though not for convergence speed.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig1_tf_grammar.png"
+                        <img src="assets/fig1_tf_grammar.png"
                             alt="Grammar at best LR per optimizer"
                             loading="lazy" />
                         <figcaption>Grammar at the best learning rate per optimizer. (A) Co-occurrence Frobenius
@@ -310,7 +310,7 @@
                     </figure>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_2x2_interaction.png"
+                        <img src="assets/fig_2x2_interaction.png"
                             alt="2x2 factorial interaction"
                             loading="lazy" />
                         <figcaption>2&times;2 factorial interaction. Crossing lines indicate that Hyperball
@@ -338,7 +338,7 @@
                         speed.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_spectral_vs_bio.png"
+                        <img src="assets/fig_spectral_vs_bio.png"
                             alt="Spectral properties vs biological outcomes"
                             loading="lazy" />
                         <figcaption>Spectral entropy vs biological outcomes across all 20 checkpoints.
@@ -398,7 +398,7 @@
                     <h4 class="blog-subheading">What we observed</h4>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_diversity_paradox.png"
+                        <img src="assets/fig_diversity_paradox.png"
                             alt="The diversity paradox"
                             loading="lazy" />
                         <figcaption>Left: generated sequences have <em>higher</em> k-mer diversity than reference
@@ -449,7 +449,7 @@
                         between all four best-LR models using 500 reference sequences.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_cka_heatmap.png"
+                        <img src="assets/fig_cka_heatmap.png"
                             alt="CKA heatmap"
                             loading="lazy" />
                         <figcaption>Linear CKA between models. Muon models share nearly identical
@@ -475,7 +475,7 @@
                         information, collapsing the weight spectrum.</p>
 
                     <figure class="blog-image">
-                        <img src="/blogs/muon-part2/assets/fig_muonh_collapse.png"
+                        <img src="assets/fig_muonh_collapse.png"
                             alt="MuonH collapse"
                             loading="lazy" />
                         <figcaption>MuonH: healthy (lr = \(9 \times 10^{-5}\), green) vs collapsed
