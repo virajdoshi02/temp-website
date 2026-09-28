@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+#
+# Assemble dist/, the exact set of files that goes to Cloudflare.
+#
+# The repo root could be handed to Wrangler directly, with .assetsignore naming
+# what to withhold, but nothing local can be made to print the resulting file list:
+# the count Wrangler reports is a raw directory walk taken before the ignore file is
+# applied, and it counts directories too. Since the repo root holds .git, an
+# exclusion that cannot be checked is not one worth relying on, so the excluding
+# happens here where the result is a directory we can read.
+#
+# Withholding rather than listing: a new blog post ships without touching this file,
+# and only the named paths stay behind.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+OUT=dist
+
+rm -rf "$OUT"
+mkdir -p "$OUT"
+
+# Hardlinks, so a 276 MB site costs no second copy on disk.
+rsync -a --link-dest="$PWD" \
+    --exclude='/.git' \
+    --exclude='/.github' \
+    --exclude='/.gitignore' \
+    --exclude='/_dev' \
+    --exclude='/dist' \
+    --exclude='/node_modules' \
+    --exclude='/.wrangler' \
+    --exclude='/wrangler.jsonc' \
+    --exclude='/package.json' \
+    --exclude='/package-lock.json' \
+    --exclude='.DS_Store' \
+    --exclude='/CNAME' \
+    --exclude='/.nojekyll' \
+    --exclude='/White.png' \
+    --exclude='/YC Logo Expanded — Orange.png' \
+    --exclude='/sec-all.png' \
+    --exclude='/sec-all-s.png' \
+    --exclude='/yc_backed.png' \
+    ./ "$OUT/"
+
+FILES=$(find "$OUT" -type f | wc -l | tr -d ' ')
+
+# GNU du spells apparent size --apparent-size; the BSD du on macOS spells it -A.
+SIZE=$(du -sh --apparent-size "$OUT" 2>/dev/null || du -shA "$OUT")
+
+echo "dist/ built: $FILES files, ${SIZE%%[[:space:]]*}"
+
+# Cloudflare takes 20,000 assets per deployment and refuses the upload past that,
+# far from anything that would point at the cause. Nearly all of the count is slide
+# tiles under api/, roughly 9,000 to a slide, so the way this gets tripped is
+# publishing another one — hence the number rather than the upload error.
+CEILING=20000
+NEAR=19000
+
+if [ "$FILES" -ge "$CEILING" ]; then
+    echo "ERROR: $FILES files, at or over Cloudflare's $CEILING limit. The deploy would be" >&2
+    echo "       rejected. Move the api/ tiles to R2 before publishing another slide." >&2
+    exit 1
+fi
+
+if [ "$FILES" -gt "$NEAR" ]; then
+    echo "WARNING: $FILES files, $((CEILING - FILES)) short of Cloudflare's $CEILING limit." >&2
+fi
+
+# Anything that should not have shipped is a bug in the excludes above, so say so
+# here rather than after it is public.
+for path in .git .github .gitignore _dev .wrangler node_modules CNAME .nojekyll wrangler.jsonc package.json package-lock.json; do
+    if [ -e "$OUT/$path" ]; then
+        echo "ERROR: $path reached dist/" >&2
+        exit 1
+    fi
+done
+
+if [ ! -f "$OUT/_headers" ] || [ ! -f "$OUT/index.html" ]; then
+    echo "ERROR: dist/ is missing _headers or index.html" >&2
+    exit 1
+fi
+
+echo "checks passed"

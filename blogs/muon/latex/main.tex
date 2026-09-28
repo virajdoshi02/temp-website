@@ -1,0 +1,958 @@
+% =============================================================================
+% Evaluating Muon for regulatory DNA learning
+% NeurIPS 2026 format
+% =============================================================================
+
+\documentclass{article}
+
+% Use numerical citations instead of author-year
+\PassOptionsToPackage{numbers, compress}{natbib}
+\usepackage[main,final]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{3}
+\setcounter{totalnumber}{6}
+
+\makeatletter
+\newcommand{\supplementarylinknote}{%
+  \if@anonymous\relax\else
+    \noindent\emph{Supplementary material is available in the submission package.}%
+  \fi
+}
+\makeatother
+
+\title{Muon Reduces the Training Cost of Regulatory DNA Transformers}
+
+\author{%
+  \mdseries
+  Viraj Doshi\thanks{Core contributor.},\,
+  Malhar Bhide,\,
+  Akshat Singh,
+  Yash Rathod,
+  Aditya Sivakumar \\
+  \texttt{viraj@origin.bio}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Gene-therapy design depends on identifying regulatory sequences that drive the right level, timing, and cell-type specificity of expression. Regulatory DNA models offer a way to prioritize such sequences computationally before committing candidates to biological testing. Biological validation involves DNA synthesis, cloning, cell culture, sequencing, and functional screening, so training compute is part of the same constrained discovery pipeline rather than an isolated modeling expense. Reducing the compute required to reach a target pretraining quality could shift time and budget toward larger candidate screens, additional assays, more cell contexts, and broader follow-up validation. Given that Adam-style optimizers are widely used for training genomic sequence models, we study whether Muon can provide a more compute-efficient alternative for regulatory DNA pretraining. We provide an in-depth analysis by training Transformer models (26M--420M parameters) on ENCODE cis-regulatory sequences with Adam and Muon while holding architecture, data, and non-optimizer hyperparameters fixed and varying optimizer family, norm-control scheme, learning rate, and model width. In the largest-scale matched-target comparison, Muon reaches Adam-matched perplexity targets with a median FLOP reduction of 35.4\% and a median wall-clock time reduction of 38.5\%. The analysis further shows that optimizer rankings depend on norm control: independent weight decay pairs more favorably with Muon than Hyperball in this setting. These findings indicate that optimizer update structure and norm-control choices are practical levers for reducing the training resources required to reach matched perplexity targets in regulatory DNA pretraining.\end{abstract}
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+% ============================================================
+
+Regulatory sequence choice is a central design problem in gene therapy: the same therapeutic payload can behave very differently depending on the regulatory elements that control its expression. Models trained on regulatory DNA can help narrow this design space before biological testing, and systems such as AlphaGenome~\citep{alphagenome}, Enformer~\citep{enformer}, and Borzoi~\citep{borzoi} illustrate the growing role of learned sequence models in this prioritization step. Because experimental validation is costly, training compute is tied to the same constrained discovery pipeline rather than being an isolated modeling expense.
+
+This makes optimizer choice more than an implementation detail. If one optimizer reaches the same held-out quality target with fewer FLOPs and less wall-clock time, the saved resources can support larger candidate screens, additional assays, more cell contexts, and broader follow-up validation. This study compares Adam~\citep{adam} and Muon~\citep{muon} for regulatory DNA Transformers under matched test perplexity targets, evaluating the optimizer in-domain rather than inferring gains from NLP. Transformer models are trained on ENCODE candidate cis-regulatory sequences while holding architecture, data, and non-optimizer hyperparameters fixed, varying optimizer family, norm-control scheme, learning rate, and model width. Adam and Muon are paired with either independent weight decay or Hyperball: \textbf{AdamW} is Adam with independent weight decay, \textbf{AdamH} is Adam with Hyperball, \textbf{MuonW} is Muon with independent weight decay, and \textbf{MuonH} is Muon with Hyperball. At the largest scale, Muon reaches Adam target quality with a median FLOP improvement of 35.4\% and a median wall-clock time improvement of 38.5\%. The comparison also shows that norm-control changes the optimizer ranking: independent weight decay pairs more favorably with Muon than Hyperball in this setting. These results motivate optimizer and norm-control choice as practical levers for reducing the training cost of regulatory DNA Transformers.
+
+
+% ============================================================
+\section{Related Work}
+\label{sec:related-work}
+% ============================================================
+
+Recent biological foundation model papers have started to include Muon, but mostly as a small optimizer ablation: replace Adam(W) and report the final metric. That design is useful for checking whether Muon improves a particular endpoint, but it leaves most of the optimizer behavior unmeasured. It does not show how quickly each optimizer improves during training, whether advantages appear only at some quality thresholds, whether FLOP gains agree with wall-clock gains, or whether the conclusion depends on norm control.
+
+\paragraph{Pretraining genomic language models with variants~\citep{ukbiobert}.} Liu \emph{et al.} include Muon in a UKBioFormer hyperparameter ablation for gene expression prediction. Their default setting uses Adam, and replacing the optimizer with AdamW or Muon does not significantly improve performance. The comparison is useful as an endpoint ablation, but it is not designed to measure optimizer dynamics, FLOPs-to-target, wall-clock time-to-target, or interactions between optimizer family and norm control.
+
+\paragraph{Foundation models for perturbation response~\citep{fmpert}.} Cole \emph{et al.} also report no significant difference between Adam and Muon. Their comparison tunes the learning rate, but still treats the optimizer result as an endpoint comparison. It does not factor norm control separately from optimizer family, and it does not analyze the spectral or relative step size behavior that could explain when Muon helps or fails.
+
+\paragraph{Our Contribution.} We treat Muon not as a single ablation but as the subject of a detailed efficiency and dynamics study. We compare Adam and Muon across norm-control schemes, learning rates, and model widths; evaluate progression across training rather than only final loss; measure FLOPs-to-target and wall-clock time-to-target over matched quality levels; and analyze spectral entropy, participation ratio, and relative step size to understand how Muon with independent weight decay behaves differently from Muon with Hyperball. The goal is not only to ask whether Muon wins in one configuration, but to characterize when, how, and under which training dynamics it changes the cost of regulatory DNA learning.
+
+
+% ============================================================
+\section{Distribution Differences}
+\label{sec:distribution}
+% ============================================================
+
+\citet{wilson} showed that optimizer rankings change across domains: adaptive methods underperform SGD on some vision tasks despite converging faster, yet dominate SGD in language modeling. This is consistent with the No Free Lunch view~\citep{nfl} that optimizer performance depends on problem structure.
+
+Regulatory DNA and natural language present very different sequence-learning problems. In language, much of the modeling burden comes from representing and composing meaning across a large semantic vocabulary. Regulatory DNA instead uses a compact four-letter alphabet whose predictive structure comes from biochemical sequence patterns. Regulatory signal is carried by motif identity, strength, spacing, orientation, local composition, and combinations of nearby motifs, rather than by standalone token identity. This makes regulatory DNA a distinct distributional setting for optimization: an optimizer that performs well on natural-language corpora is not guaranteed to behave the same way on regulatory sequence grammar. This study isolates that optimization question by using nucleotide cross-entropy to measure how efficiently an optimizer learns the statistical structure of regulatory DNA under matched architecture, data, and non-optimizer hyperparameters. We do not treat cross-entropy as a substitute for downstream biological evaluation on expression prediction, chromatin accessibility, or variant-effect prediction. Rather, cross-entropy probes the in-domain sequence-distribution component that such models must learn before task-specific functional heads or supervised biological readouts are added. Prior genomic foundation model results, including Evo~2~\citep{evo2}, suggest that lower validation loss can be associated with improved zero-shot downstream performance, but our focus here is narrower: training dynamics and compute efficiency for matched regulatory-DNA perplexity targets. Whether the same optimizer and norm-control choices improve downstream biological prediction remains an important direction for future work.
+
+One concrete example of this distributional difference is the marginal token distribution. In language, token frequencies follow Zipf's law~\citep{zipf-review}: a few tokens appear extremely often, while many are rare (Figure~\ref{fig:zipf}). This creates highly uneven token-associated gradient statistics, so Adam's second moments can vary substantially across directions. Regulatory DNA is much less skewed. It has only four nucleotide tokens, and in our data their aggregate marginal frequencies across cell lines are nearly uniform (Figure~\ref{fig:nucleotide-dist}), giving the corpus-level token distribution close to maximum entropy. This does not imply that individual sequences are compositionally uniform; rather, the overall token counts are far less imbalanced than in language. This potentially removes one major source of anisotropy present in language modeling, and suggests that Muon may not see the same convergence gains on regulatory DNA as it does on natural-language corpora (Appendix~\ref{app:gradient-stats}).
+
+% ============================================================
+\section{Weight Regularization}
+\label{sec:weight-reg}
+% ============================================================
+
+\subsection{Weight regularization controls optimizer step size}
+\label{sec:weight-decay}
+
+If the goal is to compare optimizers, the effect of weight regularization must also be controlled. Without norm control, weight norms grow during training~\citep{hyperball}, changing parameter scale relative to update size and confounding the comparison~\citep{spectral-fl}. A sweep would then mix optimizer effects with uncontrolled norm drift. We therefore first use independent weight decay, which drives weight norms toward an equilibrium while separating update direction from overall parameter scale~\citep{wdeq,adamw,hyperball}. We choose independent rather than learning-rate-coupled decay because prior work shows stronger hyperparameter transfer for this variant~\citep{wdtransfer}, an important property when tuning must be done quickly and economically.
+
+Independent weight decay is not the only plausible norm-control strategy. Although it stabilizes norms around an equilibrium, the optimizer still searches over the shell created by those fluctuations; in high dimensions, even a thin shell near the boundary can contain most of the volume~\citep{vershynin}. For RMSNorm-sandwiched layers, scalar rescaling of a weight matrix is also partly washed out by normalization (Appendix~\ref{app:scale-inv}), making direction more important than scale. Together, these observations motivate a sharper alternative: fixing the norm and optimizing primarily over direction.
+
+\subsection{Hyperball as a norm control method}
+\label{sec:hyperball}
+
+Hyperball~\citep{hyperball} fixes the Frobenius norm of each weight matrix $W$ to the initial radius $R := \|W_0\|_F$ and sets the norm of the update $U$ to $\eta R$. This confines the weight matrix to a hypersphere of radius $R$. Suppose $\mathrm{Normalize}(A):=A/\|{A}\|_F$. Given an optimizer's proposed update step $\tilde u_t$, let the actual update be:
+\[
+U_t = -\eta R\,\mathrm{Normalize}(\tilde u_t),
+\]
+then let
+\[
+W_{t+1} = R\,\mathrm{Normalize}(W_t + U_t).
+\]
+This construction can be wrapped around any optimizer update, so it works with Adam and Muon alike. That enables testing whether an optimizer advantage survives a different norm-control rule.
+
+\supplementarylinknote
+
+\medskip
+
+The useful takeaway is that Hyperball makes the learning rate an approximate relative step size dial. This is important to control, because if the relative step size is too large, then the updates are unstable, and if it is too small, then the updates are inconsequential. Hyperball fixes $\|W_t\|=R$, sets $\|U_t\|=\eta R$, and then retracts $W_t+U_t$ back to the radius-$R$ sphere. If $\gamma$ is the cosine similarity between $W_t$ and $U_t$, in the small-learning-rate regime, this simplifies to $\|\Delta W\|/\|W_t\|\approx \eta\sqrt{1-\gamma^2}$, which becomes $\approx\eta$ when the update is nearly orthogonal to the current weights (Appendix~\ref{app:derivation}); a corresponding bound is given in Appendix~\ref{app:bounds}.
+
+\paragraph{Relative step size of weight decay.} Under weight decay, by contrast, the relative step size depends on the learning rate, decay coefficient, optimizer state, momentum coefficients, and training time~\citep{wdeq,hyperball,wdnorm}; Hyperball removes most of that coupling by fixing $\|W_t\|=R$ and $\|U_t\|=\eta R$. In our runs, MuonW's relative step size decreases as $\|W_t\|$ grows, while MuonH remains flatter at the level set by $\eta$ (Figures~\ref{fig:dynamics-stepsize} and~\ref{fig:dynamics-norms}).
+
+
+% ============================================================
+\section{Experimental Setup}
+\label{sec:experimental-setup}
+% ============================================================
+
+To isolate optimizer effects, we hold the architecture family, dataset, processed-token budget, input pipeline, output heads, and all non-optimizer hyperparameters fixed. We vary only optimizer family, norm-control scheme, learning rate, and model width. All runs use weight decay $10^{-5}$ and train for 20 epochs on ENCODE v4 ~\citep{encode-v4} candidate cis-regulatory elements specific to one of eight cell lines (Appendix~\ref{app:data}). The held-out set consists of distinct regulatory sequences not used for training. The eight-cell-line subset is small enough that training necessarily revisits examples across epochs, but large enough that each epoch contains many distinct regulatory sequences. This keeps the comparison compute-bounded rather than data-bounded: optimizer differences are measured by how efficiently each method uses a fixed data distribution over repeated passes. We test three Transformer widths: 512, 1024, and 2048, corresponding to approximately 26M, 105M, and 420M parameters. Runs use 8-GPU NVIDIA H100 80GB nodes. Inputs are tokenized at single-nucleotide resolution and trained with a masked language modeling objective. The nucleotide head provides the held-out cross-entropy and perplexity metrics, while the modality head provides an auxiliary DNase-seq prediction loss using a factorized Poisson and multinomial objective. Figure~\ref{fig:experimental-setup} summarizes the model and training objectives.
+
+\begin{figure}[htbp]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+    node distance=0.75cm and 1.0cm,
+    box/.style={draw, align=center, minimum height=1.05cm, inner xsep=11pt, inner ysep=8pt, font=\normalsize},
+    inputbox/.style={box, fill=green!8, draw=green!45!black, minimum width=4.35cm},
+    model/.style={box, fill=blue!6, draw=blue!50!black, minimum width=2.65cm},
+    stack/.style={box, fill=violet!8, draw=violet!65!black, minimum width=4.65cm, minimum height=2.35cm},
+    head/.style={box, fill=teal!7, draw=teal!55!black, minimum width=4.35cm, minimum height=1.15cm},
+    data/.style={box, fill=orange!7, draw=orange!55!black, minimum width=2.45cm},
+    arrow/.style={-{Latex[length=2mm]}, thick}
+  ]
+    \node[inputbox] (input) {\begin{tabular}{c}
+      \textbf{Nucleotide input}\\[-1pt]
+      {\footnotesize\fbox{\texttt{A}}\;\fbox{\texttt{C}}\;\fbox{\texttt{G}}\;\fbox{\texttt{T}}\;\fbox{\texttt{[MASK]}}\;\fbox{\texttt{G}}\;\fbox{\texttt{A}}}\\[-1pt]
+      {\footnotesize real cCRE DNA tokens}
+    \end{tabular}};
+    \node[model, right=of input] (embed) {\textbf{Embedding}\\token + position};
+    \node[stack, right=of embed] (encoder) {\textbf{Transformer encoder stack}\\[2pt]non-causal self-attention\\RoPE + SwiGLU FFN};
+    \node[head, right=1.15cm of encoder, yshift=0.95cm] (mlm) {\begin{tabular}{c}
+      \textbf{Nucleotide head}\\[-1pt]
+      {\footnotesize\fbox{\texttt{A}}\;\fbox{\texttt{C}}\;\fbox{\texttt{G}}\;\fbox{\texttt{T}}\;\fbox{\texttt{[G]}}\;\fbox{\texttt{G}}\;\fbox{\texttt{A}}}
+    \end{tabular}};
+    \node[head, right=1.15cm of encoder, yshift=-0.95cm] (modality) {\begin{tabular}{c}
+      \textbf{Assay head}\\[-1pt]
+      {\footnotesize\texttt{0.12,\ 0.3,\ 1.4, 2.1\ ...}}
+    \end{tabular}};
+    \node[data, right=1.0cm of mlm] (ce) {CE loss};
+    \node[data, right=1.0cm of modality] (dnase) {Auxiliary\\DNase loss};
+    \draw[arrow] (input) -- (embed);
+    \draw[arrow] (embed) -- (encoder);
+    \draw[arrow] (encoder.east) -- ++(0.45,0) |- (mlm.west);
+    \draw[arrow] (encoder.east) -- ++(0.45,0) |- (modality.west);
+    \draw[arrow] (mlm) -- (ce);
+    \draw[arrow] (modality) -- (dnase);
+  \end{tikzpicture}%
+  }
+  \caption{Model Architecture.}
+  \label{fig:experimental-setup}
+\end{figure}
+
+% ============================================================
+\section{Results}
+\label{sec:results}
+% ============================================================
+
+\subsection{Muon reaches Adam perplexity targets with median 35.4\% fewer FLOPs and 38.5\% less wall-clock time}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/perplexity_best_family_largest_scale_flops.png}
+    \caption*{Best family progression by FLOPs}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/perplexity_best_family_wall_clock_largest_scale.png}
+    \caption*{Best family progression by wall-clock time}
+  \end{subfigure}
+  \caption{Largest-scale family-level progression efficiency.}
+  \label{fig:family-progressions}
+\end{figure}
+
+Lower perplexity indicates better probability mass placement on the target DNA sequence. We convert checkpoints to FLOPs using a base forward/backward term proportional to $6PBL$ per step plus a per-optimizer update term; in the largest setting, Muon's Newton--Schulz update adds only about $0.94\%$ overhead relative to the base forward/backward pass (Appendix~\ref{app:FLOPs}).
+
+We first aggregate optimizer variants by family to show the high-level efficiency trend. In Figure~\ref{fig:family-progressions}, each run is trained for 20 epochs and checkpointed once per epoch. At each checkpoint, the family curve reports the best held-out perplexity achieved by any run in that optimizer family, mapped back to its FLOP and wall-clock cost. Across the relevant compute and time range, the Muon envelope stays below the Adam envelope, showing that Muon reaches better held-out perplexity over a broad set of budgets rather than only at a single endpoint.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/adam_muon_flop_advantage_flops.png}
+    \caption*{Matched-perplexity FLOP advantage}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/adam_muon_wall_clock_advantage_largest_scale.png}
+    \caption*{Matched-perplexity wall-clock advantage}
+  \end{subfigure}
+  \caption{Muon advantage at matched Adam perplexity.}
+  \label{fig:family-advantages}
+\end{figure}
+
+Figure~\ref{fig:family-advantages} turns these progression curves into a matched-quality efficiency comparison. For each Adam checkpoint, we use its held-out perplexity as the target and find the lowest-cost Muon checkpoint whose perplexity is at least as good. The plotted value is the resulting FLOP or wall-clock time reduction relative to that Adam checkpoint, with positive values indicating that Muon reaches the same target perplexity with less compute or time. After the earliest targets, the Muon advantage remains consistently positive and typically falls in the 35--45\% range for both FLOPs and wall-clock time.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{images/adam_muon_lowest_adam_perplexity_advantage_by_scale.png}
+  \caption{Median Muon FLOP and wall-clock advantage across matched Adam perplexity targets by scale.}
+  \label{fig:scale-advantages}
+\end{figure}
+
+Figure~\ref{fig:scale-advantages} summarizes the matched-target comparison across tested model scales. For each scale, we report the median Muon reduction across Adam perplexity targets. The median advantage is positive across the tested scales: 18.3--39.7\% fewer FLOPs and 24.6--42.0\% less wall-clock time, suggesting that Muon's efficiency gain is not confined to one model width.
+
+\subsection{Test perplexity across sweep grid}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{images/perplexity_best_optimizer_progression_largest_scale_flops.png}
+  \caption{Largest-scale (2048) optimizer progression.}
+  \label{fig:final-perplexity}
+\end{figure}
+
+Figure~\ref{fig:final-perplexity} gives an optimizer-level view at the largest scale, using the run with the lowest final EMA perplexity for each optimizer variant; the EMA values used for this selection are tabulated in Appendix~\ref{app:ema-perplexity}. This complements the matched-target wall-clock analysis above by showing mean test perplexity as a function of training FLOPs. The curves separate clearly: SGD remains well above the Adam and Muon variants, Adam improves steadily, and the best Muon configuration reaches its lowest perplexity on a smaller compute and wall-clock budget. The selected Muon run uses learning rate (LR) $2.27 \times 10^{-2}$, almost an order of magnitude larger than the LR $5.69 \times 10^{-3}$ for the strongest Adam run, suggesting that Muon's update structure is associated with a larger stable effective step size in this sweep, consistent with faster progress toward the same held-out perplexity target.
+
+
+\subsection{Independent weight decay is more favorable for Muon than Hyperball}
+\label{sec:norm-control-ranking}
+
+In this sweep, MuonW is the strongest configuration, showing that Muon's advantage depends on the norm-control scheme as well as the update rule itself. This raises the question of whether MuonW and MuonH differ only in their instantaneous updates, or also in how those updates accumulate into the weights. Section~\ref{sec:spectral} tests this emperically and suggests that independent weight decay better preserves Muon's effective rank through training, while Hyperball yields a more concentrated learned weight spectrum.
+
+% ============================================================
+\section{Training Dynamics}
+\label{sec:training}
+% ============================================================
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/adam_comparison.png}
+  \caption{AdamW--AdamH training loss sweep.}
+  \label{fig:sweep-losses-adam}
+\end{figure}
+
+The matched-target results show that Muon reaches lower held-out perplexity levels with less compute and time, but they do not explain the source of this advantage. To probe the mechanism associated with this advantage, we analyze training loss sweeps for the within-optimizer norm-control comparisons in Figures~\ref{fig:sweep-losses-adam} and~\ref{fig:sweep-losses-muon}, the strongest cross-optimizer comparison in Figure~\ref{fig:muonw-adamh-sweep-loss}, and aggregate learning curves for the perplexity-selected runs in Figure~\ref{fig:loss-curves}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/muon_comparison.png}
+  \caption{MuonW--MuonH training loss sweep.}
+  \label{fig:sweep-losses-muon}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/muonw_adamh_comparison.png}
+  \caption{MuonW--AdamH training loss sweep.}
+  \label{fig:muonw-adamh-sweep-loss}
+\end{figure}
+
+Consistent with prior work~\citep{muon,hyperball}, Muon reaches lower training loss than Adam, and the optimizer ranking matches the main result: MuonW converges fastest, followed by MuonH, AdamH, and AdamW. The central pattern is learning-rate dependence. AdamH is most competitive in the mid-range, AdamW is more stable at the extremes, MuonH performs best at smaller learning rates, and MuonW improves most as the learning rate increases. Although the exact training-loss optimum for MuonW varies across widths, LR $\sim 5.69 \times 10^{-3}$ for widths 512 and 2048, versus LR $\sim 2.27 \times 10^{-2}$ for width 1024, the broader trend is that MuonW pulls away from AdamH most clearly in the high-learning-rate regime, especially at larger width. This supports the step-size hypothesis from Figure~\ref{fig:final-perplexity}: MuonW's gains arise from its ability to sustain a larger stable effective step size, making higher learning rates increasingly useful at scale.
+
+
+% ============================================================
+\section{Spectral Analysis}
+\label{sec:spectral}
+% ============================================================
+
+To characterize differences between Muon with independent weight decay (MuonW) and its constrained counterpart (MuonH) in this sweep, we examine the spectral properties of the learned representations. Following the eigenspectral framework of NerVE~\citep{nerve}\footnote{NerVE originally applies these metrics to track activation dynamics through FFN layers, but the same spectral measures are equally well defined for weight matrices.}, we track two key metrics for the weight matrices and the corresponding parameter updates:
+\begin{itemize}
+  \item \textbf{Spectral Entropy (SE):} A measure of how uniformly variance is distributed across singular values. Values near $1.0$ indicate a broadly distributed spectrum, while lower values indicate stronger spectral concentration. This metric is scale-independent as it is computed after normalizing the spectrum.
+  \item \textbf{Participation Ratio (PR):} The effective rank of the matrix. We normalize the PR to get the ratio of the effective rank to full rank. This metric is scale independent as it is the ratio of the square of the sum of eigenvalues to the sum of the squares of the eigenvalues of the gram matrix.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/svd_entropy_mean_ffn_L3.png}\\[0.85em]
+  \includegraphics[width=\linewidth]{images/pr_mean_ffn_L3.png}
+  \caption{Spectral metrics for FFN Layer~3. Top: Spectral Entropy. Bottom: Participation Ratio. Each row shows the spectrum of the weights on the left and the mean update $\Delta W$ on the right. \textbf{Blue:} MuonW, \textbf{Red:} MuonH, \textbf{Orange:} AdamW, \textbf{Green:} AdamH.}
+  \label{fig:spectral}
+\end{figure}
+
+Figure~\ref{fig:spectral} shows that Hyperball narrows Muon's accumulated weight spectrum without fully removing its update diversity. Both Muon variants start with weight spectral entropy near $0.98$, but by the end MuonW remains broader than MuonH: SE is approximately $0.95$ versus $0.93$, and normalized PR is approximately $0.57$ versus $0.46$. AdamW reaches similar SE to MuonW but with lower PR, approximately $0.36$, while AdamH is the most concentrated configuration, with SE near $0.87$ and PR near $0.14$. This exposes a deceptive aspect of SE: a spectrum can look high-entropy while still placing too little mass in enough useful directions. In this figure, PR separates the successful configuration more cleanly than SE, suggesting that lower held-out perplexity aligns more closely with maintaining effective rank than with maximizing entropy alone.
+
+\subsection{Uniform Rescaling and Spectral Concentration}
+
+Figure~\ref{fig:spectral} separates two questions: what spectrum the optimizer produces in its instantaneous updates $\Delta W$, and what spectrum ultimately accumulates in the weights $W$. Both Muon variants produce much broader update spectra than Adam: their update PR is far higher, meaning their steps use many more independent matrix directions. However, this update diversity is not transferred equally into the learned weights. MuonW maintains the broadest weight spectrum, while MuonH ends with lower weight SE and PR. This suggests that Hyperball does not remove Muon's high-rank update structure at each step; instead, its repeated Frobenius retractions appear to alter the training trajectory and limit how much the weaker singular directions can accumulate in $W$. Because SE and PR are scale-independent, this difference is not a trivial consequence of rescaling the matrix norm; it reflects a different optimization trajectory under Hyperball. AdamW shows why PR is important: it keeps relatively high weight SE, but its lower PR indicates that the usable effective rank remains smaller than MuonW's. Overall, the configuration with the best held-out perplexity, MuonW, is also the one that best preserves effective rank from updates into weights.
+
+\subsection{Implicit Annealing and Relative Step Size}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{images/relative_step_size.png}
+  \caption{Relative step size.}
+  \label{fig:dynamics-stepsize}
+\end{figure}
+
+Figure~\ref{fig:dynamics-stepsize} suggests a second reason MuonW outperforms MuonH: its relative step size, $\|\Delta W\|/\|W\|$, naturally decays over training. MuonW's weight norm grows while its update norm stays roughly stable (Figure~\ref{fig:dynamics-norms}), so each update becomes smaller relative to the current weights. This resembles an implicit annealing effect: training begins with larger relative moves and later shifts toward finer adjustments. MuonH lacks this pattern because Hyperball fixes the weight norm, causing its relative step size to plateau. AdamW shows weaker norm-growth annealing because its weight norm grows much more slowly, and its coordinate-wise updates lack Muon's matrix-whitened structure: Adam's noisy per-parameter changes can cancel in the first moment $m_t$ while continuing to accumulate in the second moment $v_t$, shrinking $m_t/\sqrt{v_t}$ in noisier coordinates. Overall, MuonW appears to combine high-rank coherent updates with automatic late-training step-size refinement, while MuonH preserves the coherent-update side but not the same relative-step decay.
+
+
+% ============================================================
+\section{Discussion and Limitations}
+\label{sec:discussion}
+% ============================================================
+
+This work shows that optimizer and norm-control choices can materially change the training cost of regulatory DNA Transformers under a fixed architecture, dataset, and objective. MuonW reaches matched Adam perplexity targets with fewer FLOPs and less wall-clock time, and the spectral analysis provides a possible explanation: the winning configuration is also the one that best preserves effective rank through training. More broadly, these findings support treating regulatory DNA pretraining as its own optimization setting rather than assuming that optimizer behavior from language modeling transfers unchanged~\citep{wilson,nfl}. These findings should be read with several limitations in mind:
+\begin{itemize}
+  \item \textbf{Downstream biology:} Held-out perplexity is the matched target. We do not show improved expression prediction, chromatin-accessibility prediction, variant-effect prediction, or regulatory sequence design.
+  \item \textbf{Statistical variation:} The sweep used 90 runs of 20 epochs, but did not include multiple seeds for each setting. We therefore do not report error bars or statistical significance tests.
+  \item \textbf{Fixed training recipe:} Batch size, sequence length, masking setup, architecture, data mixture, and weight decay ($10^{-5}$) were held fixed to isolate optimizer effects. The ranking may change under other recipes.
+  \item \textbf{Scale:} The experiments cover models up to the few-hundred-million-parameter regime. Optimizer behavior may differ at larger scales.
+\end{itemize}
+
+
+% ============================================================
+% References
+% ============================================================
+\clearpage
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+% ============================================================
+\clearpage
+\appendix
+\section*{Appendix}
+% ============================================================
+
+\section{Data}
+\label{app:data}
+
+We construct the dataset from the ENCODE v4 candidate cis-regulatory element data~\citep{encode-v4}. We preprocess data exactly as described in the paper, except for dividing by the sample non-zero mean during batch creation. Starting from the ENCODE v4 cCRE set, we filter for examples whose DNase-seq activity is specific to exactly one of the eight cell lines used in our experiments (A549, HEK293T, HepG2, Jurkat Clone E6-1, K562, SK-N-SH, endothelial cell of umbilical vein, skeletal muscle myoblast). This yields regulatory sequences of length $\le 350$ with a single active DNase track among the selected cell contexts, which supports the auxiliary modality-prediction objective while keeping the training distribution focused on cell-type-specific regulatory activity.
+
+\paragraph{Assets and licenses.} We use ENCODE v4 candidate cis-regulatory element annotations and AlphaGenome preprocessing resources. ENCODE data are released for unrestricted use under the ENCODE data release policy, and the Google DeepMind AlphaGenome code resources are released under the Apache License 2.0. We cite the original sources and follow their stated terms of use. No new dataset, benchmark, or model checkpoint is released as part of this submission. The subset is available at \url{https://kaggle.com/datasets/bee59cfcf029b7fa33440aebf35e01a8039aa27982de870e323b27afe626899e}.
+
+\section{Full Derivation of the Relative Step Size}
+\label{app:derivation}
+
+The Hyperball retraction maps $W_t + U_t$ back onto the hypersphere of radius $R$. The geometry is captured by two triangles in the vectorized matrix space:
+\begin{enumerate}
+  \item \textbf{Triangle $O$-$A$-$B$:} where $O$ is the origin, $A = W_t$ lies on the sphere, and $B = W_t + U_t$ is the pre-retraction sum (generally off the sphere). Sides: $\|OA\|=R$, $\|AB\|=\eta R$, $\|OB\|=c$. Interior angle at $A$: $\pi-\theta$.
+  \item \textbf{Triangle $O$-$A$-$C$:} where $C = W_{t+1} = R\,\mathrm{Normalize}(W_t+U_t)$ is the retracted weight, also on the sphere. This is an isosceles triangle with $\|OA\|=\|OC\|=R$, chord $\|AC\|=x=\|\Delta W\|$, and apex angle $\phi$.
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.75\linewidth]{images/hyperball_cross_section.png}
+\caption{Hyperball retraction geometry.}
+\label{fig:retraction-geometry}
+\end{figure}
+
+Figure~\ref{fig:retraction-geometry} shows the 2D cross-section used for the derivation, with the relevant lengths and angles labeled.
+
+We now derive the exact step size. Using the cosine rule on triangle $O$-$A$-$B$ (where $O$ is the origin, $A = W_t$, and $B = W_t + U_t$), noting that the interior angle at $A$ is $\pi - \theta$:
+
+\[
+\begin{aligned}
+\|W_t+U_t\|^2
+&= R^2 + \eta^2 R^2 - 2\eta R^2\cos(\pi-\theta) \\
+&= R^2 + \eta^2 R^2 + 2\eta R^2\cos\theta.
+\end{aligned}
+\]
+Hence the pre-retraction length is
+$c := \|W_t+U_t\| = R \sqrt{1 + \eta^2+ 2\eta \cos\theta}$.
+
+Since $W_{t+1}$ lies on the ray from $O$ through $B$, the angular change $\phi := \angle(\vec W_t, \vec W_{t+1})$ equals $\angle AOB$. Applying the sine rule to $\triangle OAB$:
+\[
+\frac{\sin\phi}{\|U_t\|}
+  =\frac{\sin(\pi-\theta)}{\|W_t+U_t\|}
+  \;\implies\;
+\sin\phi
+  =\frac{\eta R}{c}\sqrt{1-\gamma^2},
+\]
+and therefore
+\[
+\cos\phi
+  =\sqrt{1-\sin^2\phi}
+  =\sqrt{1-\frac{\eta^2(1-\gamma^2)}{1+\eta^2+2\eta\gamma}}.
+\]
+
+Finally, $W_t$ and $W_{t+1}$ both lie on the sphere of radius $R$, so we apply the cosine rule to the isosceles triangle $\triangle OAC$:
+
+\[
+\begin{aligned}
+\|\Delta W\|^2 &= R^2+R^2-2R^2\cos\phi,\\
+x := \|\Delta W\| &= R\sqrt{2}\sqrt{1-\cos\phi}\\
+&= R\sqrt{2}\sqrt{1-\sqrt{1-\frac{\eta^2(1-\gamma^2)}{1+\eta^2+2\eta\gamma}}}.
+\end{aligned}
+\]
+
+This exact expression also recovers the intuitive $O(\eta)$ relative step size argument. Hyperball sets both $\|W_t\|=R$ and $\|U_t\|=\eta R$. If $\|\Delta W\|_F$ is on the same order as $\|U_t\|_F$, then
+\[
+\frac{\|\Delta W\|_F}{\|W_t\|_F}
+=\frac{O(\|U_t\|_F)}{\|W_t\|_F}
+=O(\eta).
+\]
+The exact formula above refines this by accounting for the alignment between $W_t$ and $U_t$.
+
+\paragraph{Small-learning-rate regime.} In our practical training regime, $\eta^2\ll 1$ and $\gamma\eta\ll 1$, so $1+\eta^2+2\eta\gamma\approx 1$ and
+\[
+x\approx R\sqrt{2}\sqrt{1-\sqrt{1-\eta^2(1-\gamma^2)}}.
+\]
+Applying $\sqrt{1-z}\approx 1-z/2$ yields
+\[
+x \;\approx\; R\sqrt{2}\sqrt{1-\bigl(1-\tfrac{1}{2}\eta^2(1-\gamma^2)\bigr)}
+\;=\; R\,\eta\sqrt{1-\gamma^2}
+\;=\; R\,\eta\sin\theta.
+\]
+Since $\|W_t\|=R$, the relative step size is
+\[
+\frac{x}{\|W_t\|} \;\approx\; \eta\,\sqrt{1-\gamma^2}.
+\]
+When the update is orthogonal to the current weights ($\gamma=0$), this collapses to $\frac{x}{\|W_t\|}\approx \eta$. Thus, in this regime, doubling the learning rate approximately doubles the effective movement on the sphere.
+
+
+\section{Bounds on the Relative Step Size}
+\label{app:bounds}
+
+We restrict to $\gamma,\eta\in(0,1)$ throughout this appendix; the $\gamma\in(-1,0)$ case follows by replacing $\gamma\to|\gamma|$ in every step (the formula is dominated by $\gamma^2$, and the linear $2\eta\gamma$ term in the denominator only tightens the bound when $\gamma<0$). Now, suppose we know that $\gamma,\eta\in(0,1)$. We can infer from this that:
+
+\[
+\begin{aligned}
+\min_{\gamma,\eta\in[0,1]} \frac{\eta^2-\gamma^2\eta^2}{1+\eta^2+2\eta\gamma} = 0
+\;&\implies\;
+\inf_{\gamma,\eta\in(0,1)} \frac{\eta^2-\gamma^2\eta^2}{1+\eta^2+2\eta\gamma} = 0 \\
+\argmax_{\gamma,\eta\in[0,1]} \frac{\eta^2-\gamma^2\eta^2}{1+\eta^2+2\eta\gamma} =
+(0,1)\;&\implies\;
+\sup_{\gamma,\eta\in(0,1)}\frac{\eta^2-\gamma^2\eta^2}{1+\eta^2+2\eta\gamma}=\tfrac{1}{2}
+\end{aligned}
+\]
+From this we obtain
+\[
+\begin{aligned}
+&\frac{\eta^2-\gamma^2\eta^2}{1+\eta^2+2\eta\gamma}\in (0,\tfrac{1}{2})
+\;\implies\;
+\sqrt{1-\frac{\eta^2-\gamma^2\eta^2}{1+\eta^2+2\eta\gamma}}\in
+(\tfrac{1}{\sqrt2},1)\\
+&\implies
+1-\sqrt{\cdots}\in
+(0,1-\tfrac{1}{\sqrt2})
+\;\implies\;
+\sqrt{1-\sqrt{\cdots}}\in
+(0,\sqrt{1-\tfrac{1}{\sqrt2}})\\
+&\implies x\in \bigl(0,\; R\sqrt{2-\sqrt{2}}\bigr)
+\approx (0,\; 0.765R)\\
+&\implies \frac{x}{\|W_t\|}\in (0,\;\sqrt{2-\sqrt{2}})\approx (0,\; 0.765)
+\end{aligned}
+\]
+
+This is the tightest bound on the relative step size obtainable without knowledge of $\gamma$. Computing $\gamma$ analytically remains an open question, as the repeated retractions onto the hypersphere make it difficult to translate previous arguments involving momentum and weight decay~\citep{hyperball}. Unfortunately, this bound is not particularly informative: the lower bound is vacuous, and the upper bound is substantially looser than the ideal $O(\eta)$. Now, if, for instance, we input a standard range $\sim\eta\in (10^{-4},10^{-1})$ and fix $\gamma=0$, we get a slightly tighter bound of $(0.0001, 0.0996)$, where a higher learning rate corresponds to a higher step size. For a higher dot product like $\gamma=0.5$, we get a bound of $(0.0000866, 0.0823)$, which is lower.
+
+
+\section{Enforcing Scale Invariance}
+\label{app:scale-inv}
+
+A key ingredient is RMSNorm~\citep{rmsnorm}, which rescales a vector by its root-mean-square (RMS) magnitude. Given an activation vector $x\in\mathbb{R}^d$, RMSNorm computes
+\[
+\mathrm{RMSNorm}(x) = g\odot \frac{x}{\sqrt{\frac{1}{d}\sum_{i=1}^d x_i^2 + \varepsilon}},
+\]
+where $g\in\mathbb{R}^d$ is a learned per-coordinate gain, $\varepsilon>0$ is for numerical stability, and $\odot$ is the Hadamard product (element-wise multiplication).
+
+\paragraph{Rescaling property.}
+Ignoring $\varepsilon$ (or when $\|x\|$ is not tiny), RMSNorm is \emph{scale invariant}: for any scalar $\alpha>0$,
+\[
+\mathrm{RMSNorm}(\alpha x)= \mathrm{RMSNorm}(x).
+\]
+Intuitively, scaling the input by $\alpha$ scales the denominator by the same $\alpha$, so the normalized direction stays the same.
+
+\paragraph{Scale invariance of weight matrices.}
+Consider a linear map $y = Wx$. If the model applies RMSNorm before the next computation (pre-norm, post-norm, or both), then multiplying the weight matrix by a scalar often has little effect on the downstream activations:
+\[
+\mathrm{RMSNorm}((\alpha W)x) = \mathrm{RMSNorm}(\alpha (Wx)) = \mathrm{RMSNorm}(Wx).
+\]
+So for these ``RMSNorm sandwiched'' layers, scale doesn't matter as the RMSNorm layer itself learns the scaling factor necessary for the output.
+
+In our model architecture, we used MuP initialization and layer pre-normalization, but that was not enough to enforce scale invariance. To further enforce it, we added a layer post-norm and then QK-norm (like Gemma~3's and ~4's architecture~\citep{gemma}), which appeared to be sufficient for our model (although adding only the post-norm may already have been enough; the QK-norm was added for completeness).
+
+
+\section{Gradient Statistics Differ Between DNA and NLP}
+\label{app:gradient-stats}
+
+Consider a vocabulary of $K$ tokens with marginal frequencies $p_1\ge p_2\ge\cdots\ge p_K$. In a mini-batch of $B$ tokens drawn i.i.d.\ from $p$, the expected count of token $k$ is $n_k=B\,p_k$. The gradient of the loss decomposes as
+\[
+g = \frac{1}{B}\sum_{k=1}^{K} n_k\,\bar g_k
+  = \sum_{k=1}^{K} p_k\,\bar g_k,
+\]
+where $\bar g_k$ is the mean gradient contribution conditioned on token $k$. We can say that Adam's running second moment for parameters associated with token $k$ accumulates as $v_k\propto p_k\,\mathbb{E}[\|\bar g_k\|^2]+(1-p_k)\,\bar 0=p_k\,\mathbb{E}[\|\bar g_k\|^2]$. The ratio of the largest to smallest second moment therefore scales with the frequency ratio of the most to least common token
+$\frac{v_1}{v_K}\;\propto\;\frac{p_1\,\mathbb{E}[\|\bar g_1\|^2]}{p_K\,\mathbb{E}[\|\bar g_K\|^2]}$.
+If we assume that $\frac{\mathbb{E}[\|\bar g_1\|^2]}{\mathbb{E}[\|\bar g_K\|^2]}\approx O(1)$, then:
+\[
+\frac{v_1}{v_K}\;\propto\;\frac{p_1}{p_K}
+\]
+
+\textbf{Zipf (NLP):} With $p_k\propto 1/k$ and $K\approx 100{,}000$, the dynamic range is $p_1/p_K\approx K\approx 10^5$. Adam's per-coordinate $1/\sqrt{v_k}$ scaling spans \emph{orders of magnitude}, providing substantial per-direction adaptation that compensates for the wildly uneven gradient contributions of frequent vs.\ rare tokens.
+
+\textbf{DNA:} With $K=4$ and $p_k\approx 1/4$, the dynamic range is $p_1/p_K\approx 1$. Adam's adaptive denominator $\sqrt{v_k}$ is nearly identical across all tokens, reducing the coordinate-wise scaling to an approximately uniform scalar. The per-direction adaptation that makes Adam powerful in NLP provides \emph{negligible benefit} here, while Muon's whitened, scale-free updates are naturally suited to this near-isotropic landscape.
+
+
+\section{FLOPs Accounting}
+\label{app:FLOPs}
+
+Each FLOPs-axis plot uses a per-optimizer cost model that accounts for both the per-token forward/backward compute and the per-step optimizer update. Let
+\begin{itemize}
+  \item $L$: sequence length (tokens per sequence),
+  \item $B$: batch size (sequences per step),
+  \item $N$: total sequences in the dataset,
+  \item $P_{\text{2D}}$: total 2D parameters (linear weights and embeddings); optimized by Muon/MuonH in mixed mode and dominating forward/backward matmul compute,
+  \item $P_{\text{non-2D}}$: total non-2D parameters (RMSNorm scales, any biases); under the mixed-Muon optimizers (MuonW and MuonH) these are handled by an AdamW sub-optimizer, while under plain AdamW or AdamH all parameters share the top-level optimizer,
+  \item $d$: hidden dimension,
+  \item $C_{\text{opt}}$: per-parameter FLOP cost of a single optimizer step.
+\end{itemize}
+
+Total FLOPs for one epoch decompose into a \emph{base compute} term (forward/backward, incurred once per token) and an \emph{optimizer overhead} term (incurred once per batch step). We use the standard $6\,P_{\text{2D}}$-FLOPs-per-token matmul proxy for the base compute, which ignores non-matmul ops (attention softmax/mask, activations, norms, embedding lookups) contributing a few percent at $L = 352$, $d = 2048$:
+\begin{align*}
+\text{Base compute} &\approx 6\,P_{\text{2D}}\,(N\,L), \\
+\text{Optimizer overhead} &\approx \bigl(P_{\text{2D}}\,C_{\text{opt}}^{\text{Muon}} + P_{\text{non-2D}}\,C_{\text{opt}}^{\text{AdamW}}\bigr)\,(N/B).
+\end{align*}
+In our architecture $P_{\text{non-2D}} \ll P_{\text{2D}}$ (under $1\%$ of total parameters), so we drop the non-2D overhead contribution and factor $P_{\text{2D}}\,N$ out of the master formula. For brevity we write $P$ for $P_{\text{2D}}$ for the remainder of this appendix:
+\[
+F(L, B, N) \;\approx\; P\,N\!\left(6L + \frac{C_{\text{opt}}}{B}\right).
+\]
+
+\paragraph{Per-optimizer step costs.} Applying this to our four optimizers (with $C_{\text{opt}}$ derived by counting scalar FLOPs per parameter for each kernel in the \texttt{step()} method of the PyTorch implementation, under our fused SwiGLU architecture):
+\begin{align*}
+\text{AdamW}\quad & C_{\text{opt}} = \underbrace{3}_{m_1} + \underbrace{4}_{m_2} + \underbrace{3}_{\text{denom}} + \underbrace{1}_{\lambda} + \underbrace{3}_{\text{step}} = 14, \\
+\text{AdamH}\quad & C_{\text{opt}} = \underbrace{3}_{m_1} + \underbrace{4}_{m_2} + \underbrace{3}_{\text{denom}} + \underbrace{2}_{\hat m_1} + \underbrace{8}_{\text{HB}} = 20, \\
+\text{MuonW}\quad & C_{\text{opt}} = \underbrace{3}_{\text{momentum}} + \underbrace{3}_{\text{spec-norm}} + \underbrace{23.125\,d + \tfrac{445}{28}}_{\text{5 NS}} + \underbrace{3}_{\text{step}} \;=\; 23.125\,d + \tfrac{697}{28} \;\approx\; 23.125\,d + 24.89, \\
+\text{MuonH}\quad & C_{\text{opt}} = \underbrace{3}_{\text{momentum}} + \underbrace{3}_{\text{spec-norm}} + \underbrace{23.125\,d + \tfrac{445}{28}}_{\text{5 NS}} + \underbrace{8}_{\text{HB}} \;=\; 23.125\,d + \tfrac{837}{28} \;\approx\; 23.125\,d + 29.89.
+\end{align*}
+Each component counts the per-parameter FLOPs of one PyTorch kernel in the step (under the conventions $a\mathbin{{+}{=}}\alpha b$ = 2 FLOPs/elt, \texttt{addcmul\_} and \texttt{addcdiv\_} = 3 FLOPs/elt, and $\|\cdot\|_F$ = 2 FLOPs/elt). For Adam, $m_1$ is the first-moment EMA ($\texttt{mul\_}+$axpy), $m_2$ is the second-moment EMA ($\texttt{mul\_}+\texttt{addcmul\_}$), and ``denom'' is $(\sqrt{\hat v_t}/\sqrt{b_2})+\varepsilon$; the AdamW tail is a decoupled weight-decay scale $\lambda$ plus a fused \texttt{addcdiv\_} ``step'' ($1+3$), whereas AdamH replaces it with a bias-correction divide $\hat m_1$ ($\texttt{exp\_avg}/b_1$, 2) and an 8-FLOP \emph{Hyperball} (HB) projection $\{\,u\leftarrow m/\text{denom},\ \|u\|_F,\ u\!\cdot\!R/\|u\|_F,\ p\mathrel{{+}{=}}\!-\eta u,\ \|p\|_F,\ p\!\cdot\!R/\|p\|_F\,\}$. For Muon, the 3-FLOP ``momentum'' term is the in-place momentum-buffer update \texttt{buf.lerp\_(grad,\ 1-m)}; the 3-FLOP ``spec-norm'' is the Frobenius pre-divide $\tilde U\leftarrow U/\|U\|_F$ that feeds Newton--Schulz; the MuonW/MuonH tails are identical to the AdamW/AdamH tails above (``step'' = weight decay + scaled add, $1+2=3$; ``HB'' = same 8-FLOP projection).
+
+\paragraph{Deriving the Muon Newton--Schulz cost.} The $d$-dependent $23.125\,d + \tfrac{445}{28}$ term sums the five Newton--Schulz iterations across all Muon-eligible weights in one transformer layer. Each iteration performs three matrix ops on a single weight of shape $[m, n]$ with $m \le n$ (the code transposes if $m > n$): a Gram product $G \leftarrow \tilde U \tilde U^\top$ ($2 m^2 n$ matmul FLOPs), a cubic \texttt{addmm} $G \leftarrow b G + c G^2$ ($2 m^3 + 3 m^2$), and a final \texttt{addmm} $\tilde U \leftarrow a \tilde U + G \tilde U$ ($2 m^2 n + 2 m n$). Per parameter, 5 iterations cost $20 m + 10\,m^2/n$ matmul FLOPs and $10 + 15\,m/n$ scaling FLOPs, so the cost depends on each weight's post-transpose aspect ratio $r = m/n$. Summing over the six per-layer Muon-eligible weights of a grouped-query-attention ($g \equiv \text{num\_kv\_groups}/\text{num\_heads} = 2/8 = 1/4$) + SwiGLU block with $d_{\text{ff}} = 8 d/3$:
+
+\begin{center}
+\begin{tabular}{l c c r r r}
+\toprule
+Weight & $[m, n]$ & $r$ & Params & 5-step matmul & 5-step scaling \\
+\midrule
+$W_q, \texttt{out\_proj}$ (each) & $[d, d]$ & $1$ & $d^2$ & $30\,d^3$ & $25\,d^2$ \\
+$W_k, W_v$ (each) & $[d/4, d]$ & $1/4$ & $d^2/4$ & $45\,d^3/32$ & $55\,d^2/16$ \\
+\texttt{up\_proj} & $[d, 16d/3]$ & $3/16$ & $16\,d^2/3$ & $350\,d^3/3$ & $205\,d^2/3$ \\
+\texttt{down\_proj} & $[d, 8d/3]$ & $3/8$ & $8\,d^2/3$ & $190\,d^3/3$ & $125\,d^2/3$ \\
+\midrule
+\textbf{Per-layer total} & & & $10.5\,d^2$ & $242.8125\,d^3$ & $166.875\,d^2$ \\
+\textbf{Per parameter} & & & & $23.125\,d$ & $\tfrac{445}{28} \approx 15.89$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+These per-parameter averages are \emph{exact} under the combination of grouped-query attention with $g = 1/4$ and $d_{\text{ff}} = 8 d / 3$ SwiGLU. For a uniformly-square set of weights the cost would be the cleaner $30 d + 25$; the $[d/4, d]$ shape of $W_k, W_v$ and the $8/3$ MLP expansion both pull the matmul coefficient down from $30 d$ to $23.125\,d$ and the constant from $25$ to $445/28$.
+
+For our concrete architecture ($d = 2048$), MuonW's and MuonH's step costs evaluate to $47{,}384.89$ and $47{,}389.89$ FLOPs per parameter, respectively.
+
+\paragraph{Checkpoint-to-FLOPs conversion.} The FLOPs-axis plots map a checkpoint index $t$ (a training step) to cumulative FLOPs via
+\[
+\mathrm{FLOPs}(t, \text{opt}) \;=\; t\,P\!\left(6BL + C_{\text{opt}}^{\text{opt}}\right).
+\]
+
+\paragraph{Overhead ratio.} The fraction of compute consumed by the optimizer step relative to the base forward/backward pass is
+\[
+\frac{C_{\text{opt}}/B}{6L} \;=\; \frac{C_{\text{opt}}}{6\,B\,L},
+\]
+which is independent of the dataset size $N$. For our largest configuration ($L = 352$, $B = 2400$, $d = 2048$), MuonH's $C_{\text{opt}} \approx 47{,}389.89$ yields an overhead of roughly $0.94\%$, confirming that Muon's Newton--Schulz orthogonalization step is a small fraction of total training FLOPs despite its $O(d)$ scaling in $C_{\text{opt}}$.
+
+
+\section{EMA Perplexity Values}
+\label{app:ema-perplexity}
+
+The optimizer-level progression in Figure~\ref{fig:final-perplexity} selects one run per optimizer variant using the final exponential moving average (EMA) of checkpoint perplexities. The EMA decay is $0.9$ and is applied over the sequence of checkpoint-level mean perplexities. This dampens batch-level and checkpoint-level noise: an isolated unusually easy or hard evaluation checkpoint changes the EMA by only $10\%$ of its deviation from the previous smoothed value, while persistent improvements continue to accumulate across checkpoints. For Figure~\ref{fig:final-perplexity}, the selected largest-scale runs are the minima in the hidden size (hs) 2048 columns below; these selections match the figure legend.
+
+\begin{center}
+  \textbf{AdamH}\\[0.4em]
+  \begin{tabular}{@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}}
+  \hline
+  \multicolumn{2}{c}{hs512} & \multicolumn{2}{c}{hs1024} & \multicolumn{2}{c}{hs2048} \\
+  LR & EMA PPL & LR & EMA PPL & LR & EMA PPL \\
+  \hline
+  9.0e-05 & 2.6635 & 9.0e-05 & 2.6453 & 9.0e-05 & 2.6266 \\
+  3.6e-04 & 2.6199 & 3.6e-04 & 2.6108 & 3.6e-04 & 2.5919 \\
+  1.4e-03 & 2.5895 & 1.4e-03 & 2.5710 & 1.4e-03 & 2.5620 \\
+  5.7e-03 & 2.5668 & 5.7e-03 & 2.5644 & 5.7e-03 & \textbf{2.5579} \\
+  2.3e-02 & 2.5878 & 2.3e-02 & 2.5888 & 2.3e-02 & 2.5856 \\
+  \hline
+  \end{tabular}
+  \end{center}
+  
+  \begin{center}
+  \textbf{AdamW}\\[0.4em]
+  \begin{tabular}{@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}}
+  \hline
+  \multicolumn{2}{c}{hs512} & \multicolumn{2}{c}{hs1024} & \multicolumn{2}{c}{hs2048} \\
+  LR & EMA PPL & LR & EMA PPL & LR & EMA PPL \\
+  \hline
+  9.0e-05 & 2.6328 & 9.0e-05 & 2.6116 & 9.0e-05 & 2.5896 \\
+  3.6e-04 & 2.5987 & 3.6e-04 & 2.5865 & 3.6e-04 & \textbf{2.5761} \\
+  1.4e-03 & 2.5870 & 1.4e-03 & 2.5931 & 1.4e-03 & 2.5977 \\
+  5.7e-03 & 2.5927 & 5.7e-03 & 2.5825 & 5.7e-03 & 2.5931 \\
+  2.3e-02 & 2.5884 & 2.3e-02 & 2.5908 & 2.3e-02 & 2.5963 \\
+  \hline
+  \end{tabular}
+  \end{center}
+  
+  \begin{center}
+  \textbf{MuonH}\\[0.4em]
+  \begin{tabular}{@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}}
+  \hline
+  \multicolumn{2}{c}{hs512} & \multicolumn{2}{c}{hs1024} & \multicolumn{2}{c}{hs2048} \\
+  LR & EMA PPL & LR & EMA PPL & LR & EMA PPL \\
+  \hline
+  9.0e-05 & 2.6496 & 9.0e-05 & 2.6306 & 9.0e-05 & 2.6156 \\
+  3.6e-04 & 2.6096 & 3.6e-04 & 2.5993 & 3.6e-04 & 2.5841 \\
+  1.4e-03 & 2.5837 & 1.4e-03 & 2.5675 & 1.4e-03 & 2.5538 \\
+  5.7e-03 & 2.5654 & 5.7e-03 & 2.5476 & 5.7e-03 & \textbf{2.5474} \\
+  2.3e-02 & 2.5957 & 2.3e-02 & 2.5924 & 2.3e-02 & 2.5952 \\
+  \hline
+  \end{tabular}
+  \end{center}
+  
+  \begin{center}
+  \textbf{MuonW}\\[0.4em]
+  \begin{tabular}{@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}}
+  \hline
+  \multicolumn{2}{c}{hs512} & \multicolumn{2}{c}{hs1024} & \multicolumn{2}{c}{hs2048} \\
+  LR & EMA PPL & LR & EMA PPL & LR & EMA PPL \\
+  \hline
+  9.0e-05 & 2.6902 & 9.0e-05 & 2.6818 & 9.0e-05 & 2.6721 \\
+  3.6e-04 & 2.6335 & 3.6e-04 & 2.6262 & 3.6e-04 & 2.6161 \\
+  1.4e-03 & 2.5987 & 1.4e-03 & 2.5848 & 1.4e-03 & 2.5724 \\
+  5.7e-03 & 2.5708 & 5.7e-03 & 2.5492 & 5.7e-03 & 2.5359 \\
+  2.3e-02 & 2.5550 & 2.3e-02 & 2.5345 & 2.3e-02 & \textbf{2.5306} \\
+  \hline
+  \end{tabular}
+  \end{center}
+  
+  \begin{center}
+  \textbf{SgdH}\\[0.4em]
+  \begin{tabular}{@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}}
+  \hline
+  \multicolumn{2}{c}{hs512} & \multicolumn{2}{c}{hs1024} & \multicolumn{2}{c}{hs2048} \\
+  LR & EMA PPL & LR & EMA PPL & LR & EMA PPL \\
+  \hline
+  9.0e-05 & 2.7320 & 9.0e-05 & 2.7202 & 9.0e-05 & 2.7151 \\
+  3.6e-04 & 2.7088 & 3.6e-04 & 2.7011 & 3.6e-04 & 2.7035 \\
+  1.4e-03 & 2.6903 & 1.4e-03 & 2.6881 & 1.4e-03 & 2.6724 \\
+  5.7e-03 & \textbf{2.6402} & 5.7e-03 & 2.6467 & 5.7e-03 & 2.6907 \\
+  2.3e-02 & 2.6894 & 2.3e-02 & 2.7326 & 2.3e-02 & 2.8241 \\
+  \hline
+  \end{tabular}
+  \end{center}
+  
+  \begin{center}
+  \textbf{SgdW}\\[0.4em]
+  \begin{tabular}{@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}@{\hspace{0.25em}}|@{\hspace{0.25em}}@{}r@{\hspace{0.35em}}r@{}}
+  \hline
+  \multicolumn{2}{c}{hs512} & \multicolumn{2}{c}{hs1024} & \multicolumn{2}{c}{hs2048} \\
+  LR & EMA PPL & LR & EMA PPL & LR & EMA PPL \\
+  \hline
+  9.0e-05 & 2.8186 & 9.0e-05 & 2.8071 & 9.0e-05 & 2.8024 \\
+  3.6e-04 & 2.8022 & 3.6e-04 & 2.7965 & 3.6e-04 & 2.7914 \\
+  1.4e-03 & 2.7894 & 1.4e-03 & 2.7809 & 1.4e-03 & 2.7839 \\
+  5.7e-03 & 2.7788 & 5.7e-03 & 2.7733 & 5.7e-03 & 2.7743 \\
+  2.3e-02 & \textbf{2.7694} & 2.3e-02 & 2.7921 & 2.3e-02 & 2.7877 \\
+  \hline
+  \end{tabular}
+  \end{center}
+  
+% ============================================================
+\section{Additional Figures}
+\label{app:figures}
+% ============================================================
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/zipfs_law.png}
+  \caption{Zipf's law. The left panel shows Zipf's law on a linear scale, and the right panel shows it on a log-log scale. The straight line on the log-log plot is the signature of a power-law distribution~\citep{zipf}.}
+  \label{fig:zipf}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/nucleotide_K562_pie.png}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/nucleotide_HepG2_pie.png}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/nucleotide_SKNSH_pie.png}
+  \end{subfigure}
+  \caption{Nucleotide frequencies. The panels show nucleotide frequencies across three random cell lines in our training set.}
+  \label{fig:nucleotide-dist}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/loss_curves_nucleotide_loss.png}
+  \caption{Aggregate training loss curves for the perplexity-selected runs across optimizer combinations.}
+  \label{fig:loss-curves}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{images/weight_frobenius_norm.png}\\[0.5em]
+  \includegraphics[width=\linewidth]{images/delta_W_mean_frobenius_norm.png}
+  \caption{Weight and update norms. The top panel shows weight Frobenius norm, and the bottom panel shows update mean Frobenius norm. MuonW shows monotonically increasing weight norm with roughly constant update norm.}
+  \label{fig:dynamics-norms}
+\end{figure}
+
+\clearpage
+\section*{NeurIPS Paper Checklist}
+
+\begin{enumerate}
+
+\item {\bf Claims}
+    \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The abstract and introduction accurately reflect the paper's contributions and scope.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the abstract and introduction do not include the claims made in the paper.
+        \item The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A \answerNo{} or \answerNA{} answer to this question will not be perceived well by the reviewers. 
+        \item The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. 
+        \item It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 
+    \end{itemize}
+
+\item {\bf Limitations}
+    \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper includes a limitations section at the end.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper has no limitation while the answer \answerNo{} means that the paper has limitations, but those are not discussed in the paper. 
+        \item The authors are encouraged to create a separate ``Limitations'' section in their paper.
+        \item The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be.
+        \item The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated.
+        \item The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon.
+        \item The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size.
+        \item If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness.
+        \item While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren't acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an important role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations.
+    \end{itemize}
+
+\item {\bf Theory assumptions and proofs}
+    \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: Every theoretical result is proven in the Appendix or References.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not include theoretical results. 
+        \item All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced.
+        \item All assumptions should be clearly stated or referenced in the statement of any theorems.
+        \item The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. 
+        \item Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material.
+        \item Theorems and Lemmas that the proof relies upon should be properly referenced. 
+    \end{itemize}
+
+    \item {\bf Experimental result reproducibility}
+    \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper provides open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not include experiments.
+        \item If the paper includes experiments, a \answerNo{} answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not.
+        \item If the contribution is a dataset and\slash or model, the authors should describe the steps taken to make their results reproducible or verifiable. 
+        \item Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed.
+        \item While NeurIPS does not require releasing code, the conference does require all submissions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example
+        \begin{enumerate}
+            \item If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm.
+            \item If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully.
+            \item If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset).
+            \item We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results.
+        \end{enumerate}
+    \end{itemize}
+
+
+\item {\bf Open access to data and code}
+    \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper provides open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that paper does not include experiments requiring code.
+        \item Please see the NeurIPS code and data submission guidelines (\url{https://neurips.cc/public/guides/CodeSubmissionPolicy}) for more details.
+        \item While we encourage the release of code and data, we understand that this might not be possible, so \answerNo{} is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark).
+        \item The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines (\url{https://neurips.cc/public/guides/CodeSubmissionPolicy}) for more details.
+        \item The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc.
+        \item The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why.
+        \item At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable).
+        \item Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted.
+    \end{itemize}
+
+
+\item {\bf Experimental setting/details}
+    \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer) necessary to understand the results?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper specifies all the training and test details necessary to understand the results.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not include experiments.
+        \item The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them.
+        \item The full details can be provided either with the code, in appendix, or as supplemental material.
+    \end{itemize}
+
+\item {\bf Experiment statistical significance}
+    \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
+    \item[] Answer: \answerNo{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper does not report error bars or statistical significance tests. The limitations section states that the study was compute-bound and does not include multiple seeds.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not include experiments.
+        \item The authors should answer \answerYes{} if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper.
+        \item The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions).
+        \item The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.)
+        \item The assumptions made should be given (e.g., Normally distributed errors).
+        \item It should be clear whether the error bar is the standard deviation or the standard error of the mean.
+        \item It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96\% CI, if the hypothesis of Normality of errors is not verified.
+        \item For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g., negative error rates).
+        \item If error bars are reported in tables or plots, the authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text.
+    \end{itemize}
+
+\item {\bf Experiments compute resources}
+    \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The experimental setup states that runs were executed on 8 NVIDIA H100 80GB GPUs. The results and FLOPs accounting appendix report the per-run FLOP and wall-clock quantities used for the matched-target comparisons.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not include experiments.
+        \item The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage.
+        \item The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. 
+        \item The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn't make it into the paper). 
+    \end{itemize}
+    
+\item {\bf Code of ethics}
+    \item[] Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics \url{https://neurips.cc/public/EthicsGuidelines}?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper conforms to the NeurIPS Code of Ethics.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the authors have not reviewed the NeurIPS Code of Ethics.
+        \item If the authors answer \answerNo, they should explain the special circumstances that require a deviation from the Code of Ethics.
+        \item The authors should make sure to preserve anonymity (e.g., if there is a special consideration due to laws or regulations in their jurisdiction).
+    \end{itemize}
+
+
+\item {\bf Broader impacts}
+    \item[] Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed?
+    \item[] Answer: \answerNo{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper discusses positive impacts through improved training efficiency for regulatory DNA models, which can shift compute budget toward larger candidate screens and biological validation. It does not include a separate discussion of negative societal impacts; the work is an optimizer-efficiency study and does not release a deployed model or a generative system for designing regulatory sequences.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that there is no societal impact of the work performed.
+        \item If the authors answer \answerNA{} or \answerNo, they should explain why their work has no societal impact or why the paper does not address societal impact.
+        \item Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations.
+        \item The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate Deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster.
+        \item The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology.
+        \item If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML).
+    \end{itemize}
+    
+\item {\bf Safeguards}
+    \item[] Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pre-trained language models, image generators, or scraped datasets)?
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper does not release a deployed model, pretrained checkpoint, scraped dataset, or generative system with high misuse risk.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper poses no such risks.
+        \item Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. 
+        \item Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images.
+        \item We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort.
+    \end{itemize}
+
+\item {\bf Licenses for existing assets}
+    \item[] Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The appendix cites the ENCODE and AlphaGenome resources used for the study and states that ENCODE data are released for unrestricted use under the ENCODE data release policy, while the AlphaGenome code resources are released under the Apache License 2.0.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not use existing assets.
+        \item The authors should cite the original paper that produced the code package or dataset.
+        \item The authors should state which version of the asset is used and, if possible, include a URL.
+        \item The name of the license (e.g., CC-BY 4.0) should be included for each asset.
+        \item For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided.
+        \item If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, \url{paperswithcode.com/datasets} has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset.
+        \item For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided.
+        \item If this information is not available online, the authors are encouraged to reach out to the asset's creators.
+    \end{itemize}
+
+\item {\bf New assets}
+    \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper releases a derived ENCODE cCRE subset used in the experiments. The appendix describes the source data, preprocessing, filtering criteria, selected cell lines, and access URL; no model checkpoint or new benchmark is released.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not release new assets.
+        \item Researchers should communicate the details of the dataset\slash code\slash model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. 
+        \item The paper should discuss whether and how consent was obtained from people whose asset is used.
+        \item At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file.
+    \end{itemize}
+
+\item {\bf Crowdsourcing and research with human subjects}
+    \item[] Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? 
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The work does not involve crowdsourcing or human-subject experiments.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not involve crowdsourcing nor research with human subjects.
+        \item Including this information in the supplemental material is fine, but if the main contribution of the paper involves human subjects, then as much detail as possible should be included in the main paper. 
+        \item According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 
+    \end{itemize}
+
+\item {\bf Institutional review board (IRB) approvals or equivalent for research with human subjects}
+    \item[] Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained?
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The work does not involve human-subject research.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the paper does not involve crowdsourcing nor research with human subjects.
+        \item Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. 
+        \item We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. 
+        \item For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review.
+    \end{itemize}
+
+\item {\bf Declaration of LLM usage}
+    \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does \emph{not} impact the core methodology, scientific rigor, or originality of the research, declaration is not required.
+    %this research? 
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: LLMs are not an important, original, or non-standard component of the core research methodology.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer \answerNA{} means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.
+        \item Please refer to our LLM policy in the NeurIPS handbook for what should or should not be described.
+    \end{itemize}
+
+\end{enumerate}
+
+\end{document}
