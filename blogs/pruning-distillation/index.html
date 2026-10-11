@@ -45,7 +45,7 @@ window.MathJax = {
   <div class="masthead-inner">
     <a class="venue" href="../">Origin &middot; Research</a>
     <span class="masthead-right">
-      <span class="meta">24 September 2026</span>
+      <span class="meta">24 September 2026 &middot; updated 9 October</span>
       <button id="expandAll" class="expand-btn" aria-expanded="false">Expand all detail</button>
     </span>
   </div>
@@ -86,7 +86,7 @@ window.MathJax = {
       <ol>
         <li><a href="#tile-bench">Tile-level benchmarks</a></li>
         <li><a href="#recovery">When the repair happens</a></li>
-        <li><a href="#slide-bench">Slide-level tasks on TCGA</a></li>
+        <li><a href="#slide-bench">Slide-level tasks</a></li>
         <li><a href="#compact">Two other compact encoders</a></li>
       </ol>
     </li>
@@ -104,7 +104,7 @@ window.MathJax = {
 <figure class="fig wide" id="fig-pipeline">
   <div class="pipe">
     <div class="pipe-stage">
-      <span class="pipe-tag">Pruning <em>&mdash; one shot, about 5&frac12; hours, nearly all of it the search</em></span>
+      <span class="pipe-tag">Pruning <em>&mdash; one shot, about 5&frac12; wall-clock hours and 44 GPU-hours, nearly all of it the search</em></span>
       <div class="pipe-row">
         <div class="node frozen"><b>Prov-GigaPath ViT-g/16</b><small>1,134,953,984 parameters, frozen</small></div>
         <i>&rarr;</i>
@@ -116,13 +116,13 @@ window.MathJax = {
       </div>
     </div>
     <div class="pipe-stage">
-      <span class="pipe-tag">Distillation <em>&mdash; one epoch, 81 hours on eight GPUs</em></span>
+      <span class="pipe-tag">Distillation <em>&mdash; one epoch, 99 wall-clock hours on eight A100s, about 790 GPU-hours</em></span>
       <div class="pipe-row">
         <div class="node train"><b>Pruned initialization</b><small>the sliced weights</small></div>
         <i>&rarr;</i>
-        <div class="node"><b>DINO + iBOT + hidden states</b><small>59,592 steps against the frozen teacher</small></div>
+        <div class="node"><b>DINO + iBOT + hidden states</b><small>77,085 steps against the frozen teacher</small></div>
         <i>&rarr;</i>
-        <div class="node out"><b>103,630,848-parameter student</b><small>10.95&times; smaller than the teacher</small></div>
+        <div class="node out"><b>NanoPath</b><small>103,630,848 parameters, 10.95&times; smaller than the teacher</small></div>
       </div>
     </div>
   </div>
@@ -131,7 +131,7 @@ window.MathJax = {
 
 <p class="lede">Every tile of every slide we process goes through a frozen billion-parameter vision transformer before anything else can happen. We replaced that encoder with one about a tenth its size, cut directly out of the original rather than trained from scratch, and then retrained only to repair the damage. This post is how: one pass of activation-based structured pruning, followed by distillation from the model the student was cut out of.</p>
 
-<p class="lede">The student has 103,630,848 parameters to the teacher&rsquo;s 1,134,953,984, and leaves the input geometry untouched &mdash; same 224-pixel tile, same 196-token grid, same slot in the pipeline. It was distilled for a single epoch, 61 million tiles from 4,640 TCGA slides. On HEST, a public benchmark that predicts gene expression from tissue in nine organs, it scores 0.385 against the teacher&rsquo;s 0.387, and on BreakHis tumor classification it matches the teacher, 0.828 against 0.819 on a 339-image split. On PLISM, which images the same tissue across scanners and stain protocols, it is steadier than the teacher, 0.519 against 0.319.</p>
+<p class="lede">The student, NanoPath, has 103,630,848 parameters to the teacher&rsquo;s 1,134,953,984, and leaves the input geometry untouched &mdash; same 224-pixel tile, same 196-token grid, same slot in the pipeline. It was distilled for a single epoch, 78.9 million tiles from the 6,093 TCGA slides that H0-mini was trained on. On HEST, a public benchmark that predicts gene expression from tissue in nine organs, it scores 0.382 against the teacher&rsquo;s 0.387. On eva&rsquo;s classification tasks it is level with the teacher&rsquo;s published scores, 0.852 against 0.852 averaged over the five leaderboard tasks we could run, though it trails on BreakHis tumor classification and on MoNuSAC nucleus segmentation. On PLISM, which images the same tissue across scanners and stain protocols, it is steadier than the teacher, 0.520 against 0.319. That is the teacher&rsquo;s score under the benchmark&rsquo;s current code; the 0.333 on PLISM&rsquo;s leaderboard predates it and was never updated.</p>
 
 </section>
 
@@ -142,9 +142,9 @@ window.MathJax = {
 <ol class="findings">
   <li><b>A 1.13-billion-parameter tile encoder becomes a 103.6-million-parameter one, and stays a dense ViT.</b> Nothing is masked and nothing is zeroed. We score four structural axes on real H&amp;E activations &mdash; residual channels, attention heads, SwiGLU neurons, whole blocks &mdash; search 861 shapes between 85M and 105M parameters for the best one, and slice a smaller network straight out of the teacher&rsquo;s weights at 10.95&times; compression.</li>
   <li><b>The cut on its own is not a working encoder.</b> Before a single gradient step, the sliced student&rsquo;s features predict gene expression on HEST at a mean Pearson correlation of 0.236, where the teacher reaches 0.387. On PLISM nearly every tile lands in the same place: asked to find the same tissue scanned on another machine, it puts the match among its ten nearest neighbors 0.2% of the time, against the teacher&rsquo;s 57%. What activation-based importance hands to distillation is a starting point, not a working encoder.</li>
-  <li><b>Distillation repairs it with four losses at once.</b> Prototype cross-entropy on the CLS token and on all 196 patch tokens, plus cosine matching on five hidden states and on the tensor entering block 0. One epoch over 61 million tiles from 4,640 TCGA slides: 59,592 optimizer steps, 81 hours on eight GPUs.</li>
-  <li><b>On published benchmarks the student keeps nearly all of its teacher.</b> It scores 0.385 against 0.387 on HEST, mean Pearson correlation over nine gene-expression tasks, which is 99.3% of the teacher; 0.828 against 0.819 on BreakHis; and 0.519 against 0.319 on PLISM, where it retrieves the same tissue across scanners and stains far more reliably than the teacher does. On TCGA slides it never saw, it is ahead of the teacher on all four mutation panels and behind on survival, in cohorts too small to rank encoders reliably. H0-mini, an 86M-parameter student of a stronger teacher trained for about three and a half times as many tile views, scores higher on HEST at 0.396 but keeps a smaller share of its teacher, 95%.</li>
-  <li><b>The training loss is a diagnostic, not a leaderboard.</b> It halves within a thousand steps of the prototype layers unfreezing, bottoms out near 9 a sixth of the way through the epoch and finishes above 12. Its targets move with the student, so values from different points in the run are not on one scale. Benchmark scores for the checkpoints between step zero and the end of the epoch have not been measured yet. This student has no randomly initialized twin, but the smaller-scale student before it did, and there the inherited weights bought a large lead after one epoch and no advantage at the end of training (<a href="#recovery">Recovery</a>). How much of this run&rsquo;s recovery the inherited weights deserve is therefore open, and the one comparison we have argues for speed rather than a better endpoint.</li>
+  <li><b>Distillation repairs it with four losses at once.</b> Prototype cross-entropy on the CLS token and on all 196 patch tokens, plus cosine matching on five hidden states and on the tensor entering block 0. One epoch over 78.9 million tiles from 6,093 TCGA slides: 77,085 optimizer steps, 99 wall-clock hours on eight A100 GPUs, or about 790 GPU-hours.</li>
+  <li><b>On published benchmarks the student keeps nearly all of its teacher.</b> It scores 0.382 against 0.387 on HEST, mean Pearson correlation over nine gene-expression tasks, which is 98.6% of the teacher; the same 0.852 as the teacher&rsquo;s published eva scores, averaged over five classification tasks, though 0.039 behind on BreakHis and 0.036 behind on MoNuSAC nucleus segmentation; and 0.520 against 0.319 on PLISM, where it retrieves the same tissue across scanners and stains far more reliably than the teacher does. The teacher&rsquo;s 0.333 on the PLISM leaderboard was posted before the benchmark changed how it runs Prov-GigaPath, and was never updated (<a href="#tab-plism">Table 13</a>). On GTEx, the one slide-level benchmark that shares no slides with its training set, it is within 0.011 of the teacher under each of four heads. H0-mini, an 86M-parameter student of a stronger teacher, trained on the same 6,093 slides for about 2.7 times as many tile views, scores higher on HEST at 0.396 but keeps a smaller share of its teacher, 95%.</li>
+  <li><b>The training loss is a diagnostic; the checkpoints are what show the repair.</b> The loss halves within about 450 steps of the prototype layers unfreezing, bottoms out near 8 a seventh of the way through the epoch and finishes at 12.8, because its targets move with the student. Scored at every tenth of the epoch, the student has done almost all of its recovering by the end of the first tenth: 0.393 on HEST, above the teacher, from which it drifts down to 0.382 while a TCGA tissue probe keeps climbing. How much of that recovery the inherited weights deserve is open, because the student has no twin of the same shape trained from random weights under the same recipe (<a href="#recovery">Recovery</a>).</li>
 </ol>
 </section>
 
@@ -158,17 +158,17 @@ window.MathJax = {
 
 <aside class="sidenote"><p>The public GigaPath checkpoint we compress is the <em>tile</em> encoder. Its LongNet slide aggregator is a separate model and is not touched here.</p></aside>
 
-<p>So we wanted a smaller encoder, and the interesting question is where a smaller encoder comes from. Pretrain a compact ViT from scratch and you discard the one thing that is genuinely expensive: a billion tiles of pretraining we cannot rerun. Distilling from the teacher keeps that investment no matter which weights the student starts from, so the narrower question is whether starting from the teacher&rsquo;s own weights beats starting from random ones under the same targets. Cutting the teacher down makes its structure the starting point rather than something to rediscover; whether that is still worth anything at the end of training is a question for a random-start twin, and <a href="#recovery">the recovery section</a> reports the one we have.</p>
+<p>So we wanted a smaller encoder, and the interesting question is where a smaller encoder comes from. Pretrain a compact ViT from scratch and you discard the one thing that is genuinely expensive: a billion tiles of pretraining we cannot rerun. Distilling from the teacher keeps that investment no matter which weights the student starts from, so the narrower question is whether starting from the teacher&rsquo;s own weights beats starting from random ones under the same targets. Cutting the teacher down makes its structure the starting point rather than something to rediscover; whether that is still worth anything at the end of training is a question for a random-start twin, which we have not yet trained (<a href="#recovery">Recovery</a>).</p>
 
 <p>That is the Minitron recipe &mdash; rank a model&rsquo;s components by how much they contribute, remove whole structural units, then distill to repair the damage (Muralidharan et&nbsp;al., 2024). Minitron was written for language models, and a pathology ViT has no vocabulary logits to match, so a few load-bearing pieces had to be swapped out. Two algorithms then run back to back, and they are worth keeping apart because they do different jobs and fail in different ways. <b>Pruning</b> is one-shot, copies every weight it keeps straight out of the teacher, and decides what the student <em>is</em>. <b>Distillation</b> is an ordinary training run that never touches the architecture, and decides how well it works. <a href="#fig-pipeline">Figure 1</a> is both of them end to end.</p>
 
-<p>The teacher we start from is a ViT-g/16: 40 transformer blocks on a residual stream 1,536 channels wide, 24 attention heads of 64 dimensions each, and 4,096 neurons in every SwiGLU branch, with a 224&times;224 crop becoming 196 patch tokens plus a CLS token. The data underneath is 5,802 TCGA slides, split by whole patient before anything begins. A set of 1,162, drawn in proportion from every TCGA project, is held out for the final feature checks and never trained on. Of the rest, 580 supply the tiles that score importance and another 580 score architecture candidates, and the search never scores a candidate on tissue it calibrated or trained on. That is what stops an architecture from being selected on the same tissue used to judge it. Once the shape is fixed those two sets have done their job, so distillation draws on all 4,640 slides outside the final split, 61 million tiles.</p>
+<p>The teacher we start from is a ViT-g/16: 40 transformer blocks on a residual stream 1,536 channels wide, 24 attention heads of 64 dimensions each, and 4,096 neurons in every SwiGLU branch, with a 224&times;224 crop becoming 196 patch tokens plus a CLS token. Pruning works from 5,802 TCGA slides, split by whole patient before anything begins: 580 supply the tiles that score importance, another 580 score architecture candidates, and the probe that trains each candidate draws on 3,480 others, so the search never scores a candidate on tissue it calibrated or trained on. That is what stops an architecture from being selected on the same tissue used to judge it. Once the shape is fixed those sets have done their job. Distillation draws on a different, larger list: the 6,093 TCGA slides H0-mini was distilled on, 78.9 million tiles, every one of them trained on. Nothing is held out, so the student is judged on downstream benchmarks alone, and the results flag each one whose slides it has seen.</p>
 
 <details>
 <summary>Related work</summary>
 <p><b class="runin">Structured pruning and prune-then-distill.</b> Minitron prunes a language model along depth, width, attention heads and MLP neurons using activation-based importance estimated on a small calibration set, then retrains with distillation, and reports that most of the compute a from-scratch model would need is unnecessary if the student is carved out of a trained one (Muralidharan et&nbsp;al., 2024). The recipe assumes a vocabulary distribution to match, which a pathology ViT does not provide. It ranks layers either by perplexity or by block importance, a cosine measure of how much a block changes its input that Minitron adopts from ShortGPT (Men et&nbsp;al., 2024), and without perplexity only the second carries over. Both points are set out in <a href="#departures">the departures table</a>.</p>
 
-<p><b class="runin">Distilling pathology foundation models.</b> H0-mini distills a large H&amp;E encoder into a ViT-Base using the DINOv2 objective, and supervises every patch token rather than a masked subset, as DINOv2&rsquo;s own distillation recipe does (Oquab et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). We follow that choice, and diverge in that GigaPath publishes a backbone with no projection heads, so the teacher-side heads have to be manufactured. GigaPath-Flash distills the same GigaPath teacher into a 22M-parameter ViT-S with the DINOv2 recipe, minus its KoLeo regularizer, on Providence slides (Usuyama et&nbsp;al., 2026). Both distill into a standard small ViT; ours is instead cut out of the teacher, so its shape and its starting weights both come from the model it imitates.</p>
+<p><b class="runin">Distilling pathology foundation models.</b> H0-mini distills a large H&amp;E encoder into a ViT-Base using the DINOv2 objective, and supervises every patch token rather than a masked subset, as DINOv2&rsquo;s own distillation recipe does (Oquab et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). We follow that choice and train on its slide list, and diverge in that GigaPath publishes a backbone with no projection heads, so the teacher-side heads have to be manufactured. GigaPath-Flash distills the same GigaPath teacher into a 22M-parameter ViT-S with the DINOv2 recipe, minus its KoLeo regularizer, on Providence slides (Usuyama et&nbsp;al., 2026). Both distill into a standard small ViT; ours is instead cut out of the teacher, so its shape and its starting weights both come from the model it imitates.</p>
 
 <p><b class="runin">The objectives themselves.</b> DINO supplies the CLS-token prototype loss, the centering and sharpening that keep it from collapsing, and the EMA teacher (Caron et&nbsp;al., 2021); iBOT supplies the patch-level version of the same comparison (Zhou et&nbsp;al., 2022); and DINOv2 combines the two and sets the temperature, momentum and freeze schedules we reuse (Oquab et&nbsp;al., 2024). Here they are distillation losses against a fixed external teacher rather than self-supervised pretraining objectives, so the EMA teacher shrinks to EMA copies of the student&rsquo;s heads. We leave out DINOv2&rsquo;s KoLeo regularizer, as H0-mini and GigaPath-Flash also do, and keep DINO&rsquo;s running-mean center rather than DINOv2&rsquo;s Sinkhorn-Knopp centering.</p>
 
@@ -288,7 +288,7 @@ window.MathJax = {
   <figcaption><b>Figure 3.</b> Where the four families of hooks attach, drawn on one transformer block. Three of them score width and the fourth scores depth. Dashed lines are the residual connections, which is why the channel ranking has to be global: channel 900 has to mean the same thing in block 3 and block 37.</figcaption>
 </figure>
 
-<p>The three width axes share a single reduction: average the absolute activation over the token axis, then accumulate across calibration examples. Depth needs a different signal entirely. Minitron offers two: how much perplexity rises when a block is deleted, and block importance, a measure it takes from ShortGPT that asks how much work the block does (Men et&nbsp;al., 2024; Muralidharan et&nbsp;al., 2024). There is no perplexity here, so we use the second. A transformer block is a residual update, so we measure how far its output has rotated away from its input, averaged over every token of every calibration tile. A block whose output is nearly parallel to its input is barely rewriting the representation and scores near zero. The full pass &mdash; all four axes, 4,096 tiles from the 580 calibration slides, batch size 32 &mdash; takes under two minutes on one GPU, most of it spent loading the teacher.</p>
+<p>The three width axes share a single reduction: average the absolute activation over the token axis, then accumulate across calibration examples. Depth needs a different signal entirely. Minitron offers two: how much perplexity rises when a block is deleted, and block importance, a measure it takes from ShortGPT that asks how much work the block does (Men et&nbsp;al., 2024; Muralidharan et&nbsp;al., 2024). There is no perplexity here, so we use the second. A transformer block is a residual update, so we measure how far its output has rotated away from its input, averaged over every token of every calibration tile. A block whose output is nearly parallel to its input is barely rewriting the representation and scores near zero. The full pass &mdash; all four axes, 4,096 tiles from the 580 calibration slides, batch size 32 &mdash; takes under two wall-clock minutes on one GPU, most of it spent loading the teacher.</p>
 
 <details>
 <summary>The importance scores in detail <span class="tag">Eq. 1&ndash;3</span></summary>
@@ -317,7 +317,7 @@ window.MathJax = {
 
 <aside class="sidenote"><p>Centered Kernel Alignment compares the pattern of pairwise similarities among examples rather than individual coordinates. Two representations of different widths score highly if they organize the same images the same way.</p></aside>
 
-<p>Answering it is the expensive part. Each candidate gets three scores of increasing cost, the last a thousand-step training probe followed by CKA against the teacher on held-out tiles (Kornblith et&nbsp;al., 2019), and production ranks on that last number. The winner is 640 channels, 33 blocks, 10 heads and 768 neurons, at 103,630,848 parameters, and probing all 861 candidates takes about five and a half hours on eight GPUs. The probe earns its cost. Before it, the winner ranks 325th on CKA, and the three shapes that one-shot CKA likes best are wide and shallow &mdash; 1,408 or 1,472 channels over six or seven blocks &mdash; and reach only 0.49 to 0.53 after the probe, against the winner&rsquo;s 0.77.</p>
+<p>Answering it is the expensive part. Each candidate gets three scores of increasing cost, the last a thousand-step training probe followed by CKA against the teacher on held-out tiles (Kornblith et&nbsp;al., 2019), and production ranks on that last number. The winner is 640 channels, 33 blocks, 10 heads and 768 neurons, at 103,630,848 parameters, and probing all 861 candidates takes about five and a half wall-clock hours on eight GPUs, or 44 GPU-hours. The probe earns its cost. Before it, the winner ranks 325th on CKA, and the three shapes that one-shot CKA likes best are wide and shallow &mdash; 1,408 or 1,472 channels over six or seven blocks &mdash; and reach only 0.49 to 0.53 after the probe, against the winner&rsquo;s 0.77.</p>
 
 <details>
 <summary>The search space and the three ranking signals</summary>
@@ -372,7 +372,7 @@ window.MathJax = {
 
 <h3 id="cost">What the cut costs</h3>
 
-<p>Before a single training step, the sliced student is a bad model. On HEST it predicts gene expression at a mean Pearson correlation of 0.236 against the teacher&rsquo;s 0.387, and that is not partway to the teacher. In our earlier run a randomly initialized network of the previous student&rsquo;s shape scored 0.245 on the same benchmark and a random ViT-B 0.248, because HEST&rsquo;s PCA-and-ridge probe extracts that much from untrained features; the sliced network sits at that floor. On PLISM the failure is plainer: shown the same tissue scanned on two different machines, it puts the matching tile among its ten nearest neighbors 0.2% of the time, where the teacher manages 57%. Activation-based importance does not make a 10.95&times; structural cut survivable on its own; whether a better ranking could is not something this experiment tests.</p>
+<p>Before a single training step, the sliced student is a bad model. On HEST it predicts gene expression at a mean Pearson correlation of 0.236 against the teacher&rsquo;s 0.387. On PLISM the failure is plainer: shown the same tissue scanned on two different machines, it puts the matching tile among its ten nearest neighbors 0.2% of the time, where the teacher manages 57%. Activation-based importance does not make a 10.95&times; structural cut survivable on its own; whether a better ranking could is not something this experiment tests.</p>
 
 <figure class="fig" id="fig-init">
   <div class="panel">
@@ -381,21 +381,20 @@ window.MathJax = {
         <div class="bars-name">HEST, mean Pearson <i>r</i> <span>&middot; nine gene-expression tasks</span></div>
         <div class="bar-row"><span class="bar-label">Teacher</span><span class="bar-track"><span class="bar-fill teacher" style="width:38.7%"></span></span><span class="bar-val">0.387</span></div>
         <div class="bar-row"><span class="bar-label">Step zero</span><span class="bar-track"><span class="bar-fill init" style="width:23.6%"></span></span><span class="bar-val">0.236</span></div>
-        <div class="bar-row"><span class="bar-label">Random init</span><span class="bar-track"><span class="bar-fill init" style="width:24.5%;background:transparent;border:1px dashed var(--slate);box-sizing:border-box"></span></span><span class="bar-val">0.245</span></div>
-        <div class="bar-row"><span class="bar-label">One epoch</span><span class="bar-track"><span class="bar-fill pruned" style="width:38.5%"></span></span><span class="bar-val">0.385</span></div>
+        <div class="bar-row"><span class="bar-label">One epoch</span><span class="bar-track"><span class="bar-fill pruned" style="width:38.2%"></span></span><span class="bar-val">0.382</span></div>
       </div>
       <div class="bars-group">
         <div class="bars-name">PLISM, top-10 retrieval across scanners <span>&middot; 273 scanner pairs</span></div>
         <div class="bar-row"><span class="bar-label">Teacher</span><span class="bar-track"><span class="bar-fill teacher" style="width:56.6%"></span></span><span class="bar-val">0.566</span></div>
         <div class="bar-row"><span class="bar-label">Step zero</span><span class="bar-track"><span class="bar-fill init" style="width:0.2%"></span></span><span class="bar-val">0.002</span></div>
-        <div class="bar-row"><span class="bar-label">One epoch</span><span class="bar-track"><span class="bar-fill pruned" style="width:91.2%"></span></span><span class="bar-val">0.912</span></div>
+        <div class="bar-row"><span class="bar-label">One epoch</span><span class="bar-track"><span class="bar-fill pruned" style="width:90.9%"></span></span><span class="bar-val">0.909</span></div>
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 5.</b> Frozen features from the sliced student before distillation starts, on two published benchmarks, with the teacher and the finished student for scale; bars run from 0 to 1. The dashed bar is the untrained floor: 0.245 is what a randomly initialized network of our earlier v4 student&rsquo;s shape (576 wide, 31 blocks) scored on HEST in a separate run, since the benchmark&rsquo;s ridge probe recovers that much from any untrained features. The sliced network does not clear it. On PLISM it almost never finds the same tissue on another scanner; we have no random-init PLISM score at step zero to set beside it.</figcaption>
+  <figcaption><b>Figure 5.</b> Frozen features from the sliced student before distillation starts, on two published benchmarks, with the teacher and the finished student for scale; bars run from 0 to 1. On PLISM the sliced network almost never finds the same tissue on another scanner. PLISM here, as throughout, is scored with the benchmark&rsquo;s current preprocessing, under which the teacher retrieves 0.566 rather than the out-of-date 0.592 on its leaderboard (<a href="#tab-plism">Table 13</a>).</figcaption>
 </figure>
 
-<p>PLISM also shows what is wrong. Two scans of the same tissue position give the sliced network features with a median cosine similarity of 0.936, far above the teacher&rsquo;s 0.553, and yet it cannot tell one position from another. The only way both can be true is that it maps nearly every tile to nearly the same direction, so the same tissue is no closer to itself than to anything else. Measured on its own, then, the cut is a poor encoder. What it gives distillation is a place to start, and one epoch of training takes it from 0.236 to 0.385 on HEST, against the teacher&rsquo;s 0.387 (<a href="#fig-recovery">Figure 10</a>).</p>
+<p>PLISM also shows what is wrong. Two scans of the same tissue position give the sliced network features with a median cosine similarity of 0.936, far above the teacher&rsquo;s 0.553, and yet it cannot tell one position from another. The only way both can be true is that it maps nearly every tile to nearly the same direction, so the same tissue is no closer to itself than to anything else. Measured on its own, then, the cut is a poor encoder. What it gives distillation is a place to start, and a tenth of an epoch takes it from 0.236 to 0.393 on HEST, past the teacher&rsquo;s 0.387; the full epoch ends at 0.382 (<a href="#fig-recovery">Figure 10</a>).</p>
 </section>
 
 <!-- ================= distillation ================= -->
@@ -498,7 +497,7 @@ window.MathJax = {
 
 <details>
 <summary>Sharpening, centering, and the collapse failure mode</summary>
-<p>The teacher&rsquo;s logits have a running center subtracted and are divided by a temperature that warms from 0.04 to 0.07 over the first 12,770 steps, about a fifth of the epoch; the student&rsquo;s are softmaxed at a flat 0.1. The low teacher temperature sharpens: it takes a set of similar cosine scores and turns them into something close to a vote for a single prototype.</p>
+<p>The teacher&rsquo;s logits have a running center subtracted and are divided by a temperature that warms from 0.04 to 0.07 over the first 16,519 steps, about a fifth of the epoch; the student&rsquo;s are softmaxed at a flat 0.1. The low teacher temperature sharpens: it takes a set of similar cosine scores and turns them into something close to a vote for a single prototype.</p>
 
 <p>Sharpening on its own has a degenerate solution, and it is the failure mode everyone who trains DINO meets. The cheapest way for two networks to agree on a sharp distribution is for every tile in the dataset to land on the same prototype: the loss goes to zero and the features carry no information. Centering is what prevents it. The center is a running average of the teacher&rsquo;s logits, so any prototype that keeps winning gets its score pushed down for the next batch, which drives the distribution back toward uniform. Sharpening pulls toward one spike, centering pushes toward flat, and DINO works in the tension between them.</p>
 </details>
@@ -511,7 +510,7 @@ window.MathJax = {
 
 <div class="eq">\[ H(a,b)=-\sum_{k=1}^{131{,}072}\operatorname{softmax}\!\left(\frac{a-c}{\tau_{t}}\right)_{k}\log\operatorname{softmax}\!\left(\frac{b}{\tau_{s}}\right)_{k}. \tag{5}\]</div>
 
-<p>Both heads are three-layer MLPs with hidden width 2,048, a bottleneck of 384 for DINO and 256 for iBOT, L2 normalization, and a weight-normed bias-free layer onto 131,072 prototypes. Each head carries its own prototypes and its own center; the center is an exponential moving average of the teacher&rsquo;s logits with momentum 0.9, and the teacher-side heads are exponential moving averages of the student&rsquo;s heads with base momentum 0.994. The final prototype layer is frozen for the first 4,255 steps, 7% of the epoch, which is the standard DINO guard against an unstable codebook early in training.</p>
+<p>Both heads are three-layer MLPs with hidden width 2,048, a bottleneck of 384 for DINO and 256 for iBOT, L2 normalization, and a weight-normed bias-free layer onto 131,072 prototypes. Each head carries its own prototypes and its own center; the center is an exponential moving average of the teacher&rsquo;s logits with momentum 0.9, and the teacher-side heads are exponential moving averages of the student&rsquo;s heads, with a momentum that rises from 0.994 to 1.0 along a cosine over the epoch. The final prototype layer is frozen for the first 5,504 steps, 7% of the epoch, which is the standard DINO guard against an unstable codebook early in training.</p>
 
 <p>One shape detail makes any of this possible. The student&rsquo;s trunk is 640 channels wide and the teacher&rsquo;s is 1,536, so a learned \(640\rightarrow1536\) <em>neck</em> sits between the student trunk and its heads. Both models then run identically shaped heads over identically shaped features, and for the pruned student that neck is initialized as a scatter matrix, so at step zero its features land where the teacher&rsquo;s would. The neck is a separate layer from the hidden-state projection described below, even though both are \(640\rightarrow1536\) and both start from the same channel map.</p>
 </details>
@@ -606,24 +605,25 @@ window.MathJax = {
 
 <h3 id="run">The training run</h3>
 
-<p>The budget is a single epoch of AdamW, warming up over 2,979 steps and then following a cosine schedule from \(10^{-3}\) to \(10^{-6}\), with an effective batch of 1,024 tiles per optimizer step: 59,592 steps, about 61 million tiles, each seen once. Sharded across eight GPUs with FSDP2, it takes 81 hours, at about 210 tiles a second.</p>
+<p>The budget is a single epoch of AdamW, warming up over 3,854 steps and then following a cosine schedule from \(10^{-3}\) to \(10^{-6}\), with an effective batch of 1,024 tiles per optimizer step: 77,085 steps, about 78.9 million tiles, each seen once. Sharded across eight A100 GPUs with FSDP2, it takes 99 wall-clock hours in one uninterrupted run, about 790 GPU-hours, at about 220 tiles a second across all eight GPUs.</p>
 
 <figure class="fig" id="fig-loss">
   <div class="panel chart-scroll">
-    <svg viewBox="0 0 620 250" role="img" aria-label="Total distillation loss over one epoch. It sits near 23 until the prototype layers unfreeze at step 4,255, falls to about 9 by a sixth of the epoch, rises to about 12 by mid-epoch, and ends at 12.14.">
+    <svg viewBox="0 0 620 250" role="img" aria-label="Total distillation loss over one epoch. It sits near 23 until the prototype layers unfreeze at step 5,504, falls to about 8 by a seventh of the epoch, climbs to about 13 over the second half after a brief transient just before mid-epoch, and ends at 12.8.">
       <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+        <rect x="257.9" y="26" width="4.9" height="180" fill="#f6f4f0" />
         <g stroke="#ebe8e2" stroke-width="1">
-          <line x1="46" y1="36" x2="494" y2="36" />
-          <line x1="46" y1="86" x2="494" y2="86" />
-          <line x1="46" y1="136" x2="494" y2="136" />
-          <line x1="46" y1="186" x2="494" y2="186" />
+          <line x1="46" y1="35" x2="494" y2="35" />
+          <line x1="46" y1="80" x2="494" y2="80" />
+          <line x1="46" y1="125" x2="494" y2="125" />
+          <line x1="46" y1="170" x2="494" y2="170" />
         </g>
         <line x1="46" y1="206" x2="494" y2="206" stroke="#d8d5ce" stroke-width="1" />
         <g fill="#6d7178" font-size="12" text-anchor="end">
-          <text x="38" y="40">25</text>
-          <text x="38" y="90">20</text>
-          <text x="38" y="140">15</text>
-          <text x="38" y="190">10</text>
+          <text x="38" y="39">25</text>
+          <text x="38" y="84">20</text>
+          <text x="38" y="129">15</text>
+          <text x="38" y="174">10</text>
         </g>
         <g fill="#6d7178" font-size="12" text-anchor="middle">
           <text x="46" y="226">0</text>
@@ -641,19 +641,19 @@ window.MathJax = {
         </g>
         <g font-size="11" fill="#6d7178">
           <text x="84" y="38">prototype layers unfreeze</text>
-          <text x="84" y="52" fill="#9aa0a6">step 4,255</text>
+          <text x="84" y="52" fill="#9aa0a6">step 5,504</text>
           <text x="148" y="112">teacher temperature reaches 0.07</text>
-          <text x="148" y="126" fill="#9aa0a6">step 12,770</text>
+          <text x="148" y="126" fill="#9aa0a6">step 16,519</text>
         </g>
-        <polyline fill="none" stroke="#7a2d24" stroke-width="2" stroke-linejoin="round" points="46.9,38.8 48.8,44.6 50.7,47.6 52.6,49.0 54.5,50.3 56.3,51.3 58.2,52.1 60.1,52.8 62.0,52.9 63.9,53.2 65.7,53.7 67.6,54.0 69.5,50.1 71.4,54.1 73.3,54.3 75.1,54.3 77.0,54.2 78.9,55.8 80.8,90.6 82.6,132.1 84.5,155.9 86.4,171.2 88.3,177.1 90.2,182.0 92.0,182.2 93.9,186.6 95.8,189.7 97.7,191.3 99.6,193.9 101.4,193.9 103.3,193.9 105.2,197.0 107.1,194.6 109.0,195.5 110.8,196.8 112.7,194.7 114.6,195.8 116.5,196.2 118.4,195.9 120.2,197.3 122.1,196.0 124.0,194.6 125.9,194.7 127.8,194.1 129.6,192.6 131.5,192.7 133.4,191.4 135.3,192.4 137.2,189.4 139.0,188.2 140.9,187.7 142.8,186.6 144.7,180.5 146.6,184.4 148.4,185.2 150.3,183.8 152.2,182.6 154.1,181.4 155.9,179.7 157.8,178.5 159.7,181.0 161.6,180.4 163.5,180.5 165.3,178.6 167.2,178.3 169.1,180.1 171.0,178.0 172.9,177.5 174.7,178.8 176.6,180.5 178.5,179.5 180.4,178.2 182.3,179.3 184.1,180.4 186.0,180.4 187.9,177.1 189.8,179.0 191.7,178.6 193.5,178.6 195.4,179.8 197.3,178.1 199.2,177.6 201.1,179.7 202.9,178.4 204.8,179.7 206.7,178.5 208.6,178.2 210.5,178.1 212.3,178.0 214.2,178.1 216.1,177.4 218.0,178.1 219.8,175.9 221.7,175.8 223.6,176.5 225.5,176.7 227.4,176.0 229.2,174.4 231.1,175.1 233.0,175.7 234.9,174.3 236.8,173.5 238.6,173.3 240.5,175.0 242.4,173.4 244.3,174.2 246.2,171.2 248.0,171.5 249.9,173.1 251.8,171.6 253.7,168.7 255.6,169.5 257.4,168.5 259.3,168.0 261.2,166.6 263.1,166.9 265.0,165.3 266.8,166.8 268.7,164.8 270.6,166.2 272.5,165.5 274.4,166.0 276.2,166.2 278.1,166.9 280.0,165.8 281.9,165.6 283.8,165.3 285.6,166.7 287.5,168.2 289.4,165.3 291.3,164.5 293.1,166.4 295.0,163.8 296.9,165.0 298.8,164.1 300.7,164.7 302.5,166.1 304.4,165.0 306.3,163.0 308.2,161.2 310.1,163.8 311.9,164.1 313.8,163.5 315.7,163.5 317.6,163.3 319.5,159.6 321.3,161.4 323.2,159.7 325.1,162.2 327.0,163.5 328.9,161.1 330.7,162.4 332.6,161.9 334.5,164.0 336.4,162.4 338.3,164.4 340.1,161.6 342.0,162.3 343.9,162.8 345.8,163.4 347.7,163.7 349.5,163.4 351.4,163.6 353.3,156.0 355.2,162.0 357.0,161.3 358.9,162.6 360.8,162.8 362.7,162.7 364.6,162.6 366.4,165.4 368.3,162.8 370.2,162.8 372.1,164.2 374.0,163.4 375.8,160.1 377.7,163.4 379.6,165.0 381.5,164.6 383.4,164.5 385.2,165.8 387.1,163.1 389.0,164.6 390.9,164.6 392.8,164.8 394.6,163.4 396.5,163.6 398.4,165.3 400.3,166.3 402.2,164.8 404.0,164.8 405.9,165.2 407.8,165.3 409.7,163.5 411.6,163.8 413.4,161.9 415.3,167.3 417.2,166.1 419.1,163.0 420.9,164.9 422.8,165.1 424.7,165.1 426.6,164.6 428.5,165.1 430.3,164.1 432.2,165.0 434.1,164.8 436.0,163.8 437.9,164.1 439.7,165.4 441.6,166.0 443.5,163.6 445.4,165.4 447.3,165.0 449.1,165.0 451.0,165.4 452.9,166.8 454.8,163.6 456.7,164.1 458.5,163.1 460.4,163.5 462.3,166.0 464.2,165.5 466.1,165.6 467.9,165.7 469.8,165.1 471.7,165.9 473.6,165.7 475.5,163.2 477.3,164.8 479.2,163.7 481.1,166.8 483.0,165.5 484.9,164.7 486.7,165.9 488.6,167.6 490.5,164.6 492.4,166.3 494.0,164.3" />
-        <text x="504" y="168" font-size="12.5" font-weight="600" fill="#7a2d24">final 12.14</text>
+        <polyline fill="none" stroke="#7a2d24" stroke-width="2" stroke-linejoin="round" points="46.3,40.3 48.2,42.1 50.0,43.9 51.9,46.6 53.8,47.6 55.6,48.8 57.5,49.4 59.4,49.8 61.2,50.2 63.1,50.6 65.0,50.6 66.8,51.0 68.7,50.6 70.5,51.2 72.4,52.5 74.3,54.1 76.1,59.6 76.8,64.2 77.4,70.3 78.0,78.4 78.6,88.0 79.2,98.3 79.9,110.3 80.5,121.7 81.1,132.6 81.7,143.0 82.3,151.5 83.0,158.6 83.6,164.3 84.8,170.4 86.7,175.2 88.6,178.5 90.4,180.3 92.3,181.7 94.2,183.0 96.0,183.8 97.9,184.2 99.7,184.8 101.6,186.0 103.5,187.2 105.3,187.6 107.2,187.0 109.1,186.8 110.9,186.4 112.8,186.8 114.7,187.0 116.5,186.6 118.4,185.8 120.3,184.6 122.1,182.8 124.0,180.3 125.8,178.1 127.7,175.9 129.6,173.8 131.4,171.8 133.3,171.0 135.2,170.2 137.0,169.6 138.9,168.8 140.8,167.9 142.6,167.0 144.5,166.7 146.3,166.7 148.2,167.3 150.1,167.7 151.9,167.5 153.8,167.1 155.7,166.5 157.5,165.9 159.4,166.3 161.3,166.7 163.1,166.7 165.0,166.7 166.9,166.3 168.7,166.3 170.6,166.3 172.4,166.5 174.3,166.7 176.2,166.1 178.0,165.3 179.9,164.7 181.8,165.1 183.6,165.3 185.5,166.1 187.4,166.5 189.2,166.5 191.1,166.5 193.0,166.3 194.8,166.1 196.7,165.5 198.5,164.9 200.4,164.5 202.3,163.7 204.1,162.7 206.0,161.4 207.9,159.8 209.7,158.6 211.6,157.8 213.5,157.8 215.3,157.8 217.2,158.0 219.0,158.4 220.9,158.4 222.8,158.4 224.6,159.0 226.5,159.6 228.4,160.0 230.2,159.4 232.1,159.0 234.0,159.2 235.8,159.2 237.7,159.6 239.6,159.2 241.4,159.4 243.3,159.6 245.1,159.8 247.0,159.6 248.9,159.8 250.7,159.6 252.6,159.0 254.5,155.2 255.7,150.1 257.0,143.6 258.2,139.5 260.1,137.9 261.9,145.2 263.8,149.1 265.7,150.3 267.5,149.9 269.4,150.5 271.2,148.1 273.1,148.3 275.0,148.5 276.8,151.3 278.7,152.7 280.6,152.5 282.4,152.1 284.3,152.7 286.2,153.3 288.0,154.3 289.9,153.9 291.7,153.1 293.6,152.3 295.5,152.3 297.3,152.7 299.2,153.1 301.1,153.1 302.9,152.7 304.8,152.3 306.7,152.1 308.5,152.5 310.4,152.5 312.3,152.3 314.1,152.1 316.0,151.9 317.8,151.9 319.7,152.3 321.6,152.1 323.4,151.7 325.3,150.5 327.2,149.5 329.0,149.5 330.9,149.9 332.8,150.3 334.6,150.3 336.5,149.9 338.3,150.1 340.2,148.9 342.1,147.6 343.9,146.6 345.8,146.4 347.7,146.4 349.5,146.2 351.4,146.0 353.3,145.4 355.1,144.8 357.0,144.0 358.9,143.6 360.7,143.4 362.6,142.8 364.4,142.4 366.3,141.8 368.2,141.6 370.0,140.9 371.9,140.7 373.8,140.9 375.6,140.7 377.5,140.7 379.4,140.1 381.2,140.7 383.1,140.7 385.0,140.3 386.8,140.1 388.7,140.1 390.5,140.3 392.4,140.7 394.3,141.2 396.1,141.4 398.0,142.2 399.9,142.2 401.7,142.2 403.6,142.2 405.5,142.4 407.3,142.0 409.2,141.6 411.0,142.2 412.9,142.6 414.8,143.2 416.6,143.4 418.5,143.2 420.4,143.2 422.2,143.6 424.1,143.8 426.0,144.0 427.8,143.8 429.7,143.8 431.6,143.2 433.4,143.4 435.3,143.8 437.1,144.2 439.0,144.4 440.9,144.4 442.7,144.4 444.6,144.4 446.5,144.2 448.3,144.4 450.2,144.2 452.1,144.0 453.9,144.0 455.8,144.2 457.7,144.2 459.5,144.6 461.4,144.6 463.2,144.8 465.1,145.0 467.0,144.4 468.8,144.6 470.7,144.6 472.6,145.0 474.4,144.6 476.3,144.4 478.2,145.0 480.0,145.2 481.9,145.2 483.7,145.0 485.6,145.2 487.5,145.2 489.3,145.4 491.2,144.8 493.1,144.6 493.7,144.6" />
+        <text x="504" y="149" font-size="12.5" font-weight="600" fill="#7a2d24">final 12.8</text>
       </g>
     </svg>
   </div>
-  <figcaption><b>Figure 9.</b> Total objective over the single epoch, averaged over 250-step windows. While the prototype layers are frozen the loss sits near 23.2, close to \(2\ln 131{,}072\approx23.6\), the cross-entropy of two heads that spread their mass evenly over every prototype. It halves within a thousand steps of their release, bottoms out just under 9 about a sixth of the way through, and climbs back to about 12 by mid-epoch.</figcaption>
+  <figcaption><b>Figure 9.</b> Total objective over the single epoch, as a rolling mean over 1,000 steps centered on each point, which is why the fall starts just before the dashed line. While the prototype layers are frozen the loss sits near 23.3, close to \(2\ln 131{,}072\approx23.6\), the cross-entropy of two heads that spread their mass evenly over every prototype. It halves within about 450 steps of their release, bottoms out near 8 about a seventh of the way through, and climbs back to about 13 over the second half. The shaded sliver just before mid-epoch marks a transient, steps 36,450 to 37,300, that spiked every loss term and the gradient norm; training recovered without intervention.</figcaption>
 </figure>
 
-<p>It is worth saying plainly what that chart is not. With EMA-driven targets that move as the student moves, a teacher temperature that keeps warming for the first fifth of the epoch, and a hidden term whose weight is set by a running ratio, the loss at one point in the run is not measured on the same scale as the loss at another. It is a training diagnostic rather than a leaderboard: the climb from 9 back to 12 is not by itself evidence that the encoder got worse, and only benchmark scores at the checkpoints along the way can say whether it did (<a href="#fig-recovery">Figure 10</a>).</p>
+<p>It is worth saying plainly what that chart is not. With EMA-driven targets that move as the student moves, a teacher temperature that keeps warming for the first fifth of the epoch, and a hidden term whose weight is set by a running ratio, the loss at one point in the run is not measured on the same scale as the loss at another. It is a training diagnostic rather than a leaderboard. The climb from 8 back to 13 comes from the targets, not the student: a prototype cross-entropy is the entropy of the target distribution plus the divergence the student can reduce, and the targets soften as the teacher temperature warms and spread over more prototypes as the EMA heads develop. By the end of the epoch the two prototype terms sum to about 10.9, of which only 1.9 is divergence. The checkpoints say what the curve cannot: HEST peaks a tenth of the way through and drifts down by about 0.01 from there, while a TCGA tissue probe climbs to the end (<a href="#fig-recovery">Figure 10</a>).</p>
 </section>
 
 <!-- ================= architecture ================= -->
@@ -686,9 +686,9 @@ window.MathJax = {
 
 <figure class="fig wide">
 <table class="booktabs">
-  <caption><b>Table 1.</b> The teacher and the student. Compression is on backbone parameters; the projection heads and the state projection are training-time machinery and are discarded at inference.</caption>
+  <caption><b>Table 1.</b> The teacher and the student. Compression is on backbone parameters. The student&rsquo;s 640&rarr;1,536 neck, its 640&rarr;1,536 hidden-state projection, the two projection heads and their EMA copies are training-time machinery and are not counted.</caption>
   <thead>
-    <tr><th>Field</th><th>Teacher &mdash; Prov-GigaPath ViT-g/16</th><th>Student &mdash; Origin v6</th></tr>
+    <tr><th>Field</th><th>Teacher &mdash; Prov-GigaPath ViT-g/16</th><th>Student &mdash; NanoPath</th></tr>
   </thead>
   <tbody>
     <tr><th>Parameters</th><td>1,134,953,984</td><td>103,630,848 &nbsp;<span class="ci">10.95&times; smaller</span></td></tr>
@@ -700,7 +700,7 @@ window.MathJax = {
     <tr><th>Tokens per tile</th><td>196 + CLS</td><td>196 + CLS</td></tr>
     <tr><th>Register tokens</th><td>0</td><td>0</td></tr>
     <tr><th>Input</th><td>224 px</td><td>224 px</td></tr>
-    <tr><th>Distillation</th><td>&mdash;</td><td>1 epoch, 61.0M tiles from 4,640 slides</td></tr>
+    <tr><th>Distillation</th><td>&mdash;</td><td>1 epoch, 78.9M tiles from 6,093 slides</td></tr>
     <tr><th>Checkpoint</th><td><span class="mono">prov-gigapath/prov-gigapath</span>, rev <span class="mono">64f9e26</span></td><td>sliced from the above</td></tr>
   </tbody>
 </table>
@@ -724,7 +724,7 @@ window.MathJax = {
     <tr><th>Selected shape</th><td>640 &times; 33 &times; 10 &times; 768 &rarr; 103,630,848 parameters, CKA 0.772</td></tr>
     <tr><th>Retained teacher blocks</th><td>33 of 40 &mdash; <span class="mono">[0&ndash;5, 13&ndash;39]</span></td></tr>
     <tr><th>Student tap blocks</th><td><span class="mono">[6, 13, 19, 26]</span>, plus final tokens</td></tr>
-    <tr><th>Wall time</th><td>~1.5 min importance, 5 h 27 m ranking, 36 s to slice</td></tr>
+    <tr><th>Wall-clock time</th><td>~1.5 min importance on 1 GPU; 5 h 27 m ranking on 8 GPUs, 43.6 GPU-hours; 36 s to slice on CPU</td></tr>
   </tbody>
 </table>
 </figure>
@@ -743,10 +743,10 @@ window.MathJax = {
     <tr><th>Hidden-state distance</th><td><span class="mono">cosine</span>, LayerNorm both sides, Eq.&nbsp;6</td></tr>
     <tr><th>Dynamic \(\alpha\)</th><td>range [0.0, 1000.0], eps 1e-6, EMA momentum 0.9</td></tr>
     <tr><th>Student temperature</th><td>0.1, constant</td></tr>
-    <tr><th>Teacher temperature</th><td>0.04 &rarr; 0.07 over the first 0.2143 epoch, 12,770 steps</td></tr>
+    <tr><th>Teacher temperature</th><td>0.04 &rarr; 0.07 over the first 0.2143 epoch, 16,519 steps</td></tr>
     <tr><th>Center momentum</th><td>0.9</td></tr>
-    <tr><th>Teacher-head EMA</th><td>base momentum 0.994</td></tr>
-    <tr><th>Freeze last layer</th><td>0.0714 epoch, 4,255 steps</td></tr>
+    <tr><th>Teacher-head EMA</th><td>momentum 0.994 &rarr; 1.0, cosine over the epoch</td></tr>
+    <tr><th>Freeze last layer</th><td>0.0714 epoch, 5,504 steps</td></tr>
     <tr><th>DINO head</th><td>131,072 prototypes, bottleneck 384, hidden 2,048</td></tr>
     <tr><th>iBOT head</th><td>131,072 prototypes, bottleneck 256, hidden 2,048</td></tr>
   </tbody>
@@ -764,7 +764,7 @@ window.MathJax = {
     <tr><th>Optimizer</th><td>AdamW, betas (0.9, 0.999)</td></tr>
     <tr><th>Learning rate</th><td>1e-3, cosine to 1e-6</td></tr>
     <tr><th>Schedule length</th><td>1 epoch</td></tr>
-    <tr><th>Warmup</th><td>5% of the schedule, 2,979 steps</td></tr>
+    <tr><th>Warmup</th><td>5% of the schedule, 3,854 steps</td></tr>
     <tr><th>Weight decay</th><td>0.04 &rarr; 0.2</td></tr>
     <tr><th>Layerwise LR decay</th><td>1.0 (disabled)</td></tr>
     <tr><th>Independent weight decay</th><td>False</td></tr>
@@ -782,8 +782,8 @@ window.MathJax = {
     <tr><th>Gradient accumulation</th><td>8</td></tr>
     <tr><th>GPUs</th><td>8</td></tr>
     <tr><th>Effective batch</th><td>1,024 tiles per optimizer step</td></tr>
-    <tr><th>Steps per epoch</th><td>59,592</td></tr>
-    <tr><th>Total steps</th><td>59,592 &nbsp;<span class="ci">~61.0M tiles</span></td></tr>
+    <tr><th>Steps per epoch</th><td>77,085</td></tr>
+    <tr><th>Total steps</th><td>77,085 &nbsp;<span class="ci">~78.9M tiles</span></td></tr>
     <tr><th>Distributed</th><td>FSDP2, mesh <span class="mono">[1, 8]</span>, dims <span class="mono">['replicate', 'shard']</span></td></tr>
     <tr><th>Dataloader workers</th><td>8</td></tr>
     <tr><th>Block size</th><td>1,024</td></tr>
@@ -818,14 +818,13 @@ window.MathJax = {
 <table class="params">
   <caption><b>Table 7.</b> Data. The manifest and the shard set are checksummed, and the loader refuses any shard whose size or hash has drifted, so a rerun on another machine either reproduces the split exactly or fails loudly.</caption>
   <tbody>
-    <tr><th>Source</th><td>TCGA whole-slide images, 5,802 slides, tiled to <span class="mono">data/tcga_wsi/tile_shards</span> (2.7 TiB)</td></tr>
-    <tr><th>Final evaluation</th><td>1,162 slides by whole patient, stratified by TCGA project; never trained on</td></tr>
-    <tr><th>Search sets</th><td>580 calibration and 580 architecture-validation slides, kept out of the probe</td></tr>
-    <tr><th>Distillation</th><td>4,640 slides, every slide outside the final split &mdash; 61,022,927 tiles</td></tr>
+    <tr><th>Source</th><td>TCGA diagnostic slides, the 6,093 that H0-mini was distilled on: 5,671 patients in 16 projects, tiled to <span class="mono">data/tcga_wsi/tile_shards_h0mini</span> (3.03 TB)</td></tr>
+    <tr><th>Tiling</th><td>256 px at 0.5 &micro;m/px on an Otsu tissue mask, keeping tiles at least 10% tissue; JPEG quality 95; one HDF5 shard per slide</td></tr>
+    <tr><th>Distillation</th><td>all 6,093 slides, none held out &mdash; 78,935,653 tiles</td></tr>
+    <tr><th>Search sets</th><td>580 calibration, 580 architecture-validation and 3,480 probe slides, from a separate 5,802-slide split made for the pruning stage</td></tr>
     <tr><th>Labels</th><td>none; the objective is entirely label-free</td></tr>
-    <tr><th>Split manifest</th><td><span class="mono">configs/task_configs/distill_splits_v6_5802_stratified.json</span></td></tr>
-    <tr><th>Manifest SHA256</th><td><span class="mono">e133d411&hellip;a0b40479</span></td></tr>
-    <tr><th>Dataset SHA256</th><td><span class="mono">e8ff7960&hellip;94422008</span></td></tr>
+    <tr><th>Manifest SHA256</th><td><span class="mono">df3c29a1&hellip;98d02ce8</span></td></tr>
+    <tr><th>Dataset SHA256</th><td><span class="mono">7643d0ae&hellip;2cffdb2d</span></td></tr>
   </tbody>
 </table>
 </figure>
@@ -835,18 +834,18 @@ window.MathJax = {
 <summary>What the pipeline costs, stage by stage <span class="tag">Table 8</span></summary>
 <figure class="fig">
 <table class="booktabs">
-  <caption><b>Table 8.</b> Wall time for a full reproduction, in order. Distillation is 94% of the total; everything upstream of it, including the architecture search, takes under six hours. Each stage also re-hashes the 2.7 TiB shard set before reading it, about 50 minutes a time, which is not counted here.</caption>
+  <caption><b>Table 8.</b> Cost of a full reproduction, in order, as wall-clock time and as GPU-hours (GPUs held &times; wall-clock hours). Distillation is 95% of the total on either measure; everything upstream of it, including the architecture search, takes under six wall-clock hours and about 44 GPU-hours. Each stage also re-hashes its shard set before reading it, most of a wall-clock hour each time, which is not counted here.</caption>
   <thead>
-    <tr><th>Stage</th><th>Resources</th><th>Wall time</th></tr>
+    <tr><th>Stage</th><th>Resources</th><th>Wall-clock</th><th>GPU-hours</th></tr>
   </thead>
   <tbody>
-    <tr><td>Split manifest</td><td>1 CPU</td><td>seconds</td></tr>
-    <tr><td>Importance scoring</td><td>1 GPU, 4,096 samples, batch 32</td><td>~1.5 min</td></tr>
-    <tr><td>Candidate ranking</td><td>8 GPU, 861 candidates, 1,000 probe steps each</td><td>5 h 27 m</td></tr>
-    <tr><td>Slice the student</td><td>1 CPU</td><td>36 s</td></tr>
-    <tr><td>Artifact validation</td><td>1 GPU</td><td>12 s</td></tr>
-    <tr class="ours"><td>Distillation</td><td>8 GPU, 59,592 steps</td><td>81 h 10 m</td></tr>
-    <tr><td>Reload and feature eval</td><td>1 GPU</td><td>~1.5 min</td></tr>
+    <tr><td>Split manifest</td><td>1 CPU</td><td>seconds</td><td>&mdash;</td></tr>
+    <tr><td>Importance scoring</td><td>1 GPU, 4,096 samples, batch 32</td><td>~1.5 min</td><td>0.03</td></tr>
+    <tr><td>Candidate ranking</td><td>8 GPU, 861 candidates, 1,000 probe steps each</td><td>5 h 27 m</td><td>43.6</td></tr>
+    <tr><td>Slice the student</td><td>1 CPU</td><td>36 s</td><td>&mdash;</td></tr>
+    <tr><td>Artifact validation</td><td>1 GPU</td><td>seconds</td><td>&lt;0.01</td></tr>
+    <tr class="ours"><td>Distillation</td><td>8 GPU, 77,085 steps</td><td>98 h 58 m</td><td>791.7</td></tr>
+    <tr><td><b>Total</b></td><td></td><td><b>~104 h 27 m</b></td><td><b>~835</b></td></tr>
   </tbody>
 </table>
 </figure>
@@ -858,47 +857,51 @@ window.MathJax = {
 <section id="results">
 <h2>Results</h2>
 
-<p>Every benchmark in this section was designed and published by someone else, so its tasks, splits and scoring were fixed before our student existed. Three of them score tile features directly: HEST predicts spatial gene expression from tissue (Jaume et&nbsp;al., 2024), eva classifies histology patches (kaiko.ai et&nbsp;al., 2024), and PLISM measures how far a feature moves when the same tissue is rescanned or restained (Ochi et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). The rest work at the slide level: the cancer-subtyping and mutation tasks from the Prov-GigaPath paper itself (Xu et&nbsp;al., 2024), rebuilt on public TCGA slides, and the PORPOISE survival model (Chen et&nbsp;al., 2022). Every number comes from frozen features, with at most a light head trained on top; no encoder is fine-tuned.</p>
+<p>Nearly every benchmark in this section was designed and published by someone else, so its tasks, splits and scoring were fixed before our student existed. Three of them score tile features directly: HEST predicts spatial gene expression from tissue (Jaume et&nbsp;al., 2024), eva classifies histology patches and slides and segments nuclei (kaiko.ai et&nbsp;al., 2024), and PLISM measures how far a feature moves when the same tissue is rescanned or restained (Ochi et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). The rest work at the slide level: the PORPOISE survival model (Chen et&nbsp;al., 2022), and the cancer-subtyping and mutation tasks from the Prov-GigaPath paper itself (Xu et&nbsp;al., 2024), rebuilt on public TCGA slides. One benchmark breaks the rule. GTEx is a set of slide-level tasks we built ourselves from public slides of normal tissue, and it is here because it is the only slide-level benchmark that shares no slides with the student&rsquo;s training set. Every number comes from frozen features, with at most a light head trained on top; no encoder is fine-tuned.</p>
 
-<p>Our student, labeled Origin v6 in the tables, is the network built above: 640 channels, 33 blocks, 10 heads and 768 SwiGLU neurons, 103,630,848 parameters, 10.95&times; fewer than the teacher (<a href="#arch-shapes">Table 1</a>), scored from the checkpoint at the end of its single epoch. Everywhere in this post we score its live weights rather than their EMA average, and take its 640-dimensional features before the neck. DINOv2 and H0-mini report the EMA copy instead, and ours is not uniformly better or worse: it scores 0.3851 against the live 0.3848 on HEST and 0.531 against 0.519 on PLISM, but 0.819 against 0.828 on BreakHis and 0.602 against 0.612 on survival. We hold to one choice throughout rather than take the better of the two per benchmark.</p>
+<p>Our student, NanoPath, is the network built above: 640 channels, 33 blocks, 10 heads and 768 SwiGLU neurons, 103,630,848 parameters, 10.95&times; fewer than the teacher (<a href="#arch-shapes">Table 1</a>), scored from the checkpoint at the end of its single epoch. Everywhere in this post we score live weights rather than their EMA average, and take the 640-dimensional features before the neck. DINOv2 and H0-mini report the EMA copy instead, and ours is not uniformly better or worse: it scores 0.3830 against the live 0.3822 on HEST, 0.534 against 0.520 on PLISM and 0.840 against 0.837 on eva&rsquo;s patch tasks, but 0.564 against 0.569 on TCGA survival. We hold to one choice throughout rather than take the better of the two per benchmark.</p>
 
-<p>Beside the teacher we report H0-mini, an 86M-parameter ViT-B distilled from Bioptimus&rsquo;s H-optimus-0 (Saillard et&nbsp;al., 2024), which went through the same pipelines as our student. GigaPath-Flash, a 22M-parameter student of the same GigaPath teacher, has so far been scored only by its authors, on benchmarks we have not run, so it appears in the discussion but not in the tables. Rows marked <em>published</em> are copied from a benchmark&rsquo;s public leaderboard or from the source paper; every other row is our own run. Bold marks the best score in each column.</p>
+<p>Beside the teacher we report H0-mini, an 86M-parameter ViT-B distilled from Bioptimus&rsquo;s H-optimus-0 (Saillard et&nbsp;al., 2024), which went through the same tile-level pipelines as our student. GigaPath-Flash, a 22M-parameter student of the same GigaPath teacher, has so far been scored only by its authors, on benchmarks we have not run, so it appears in the discussion but not in the tables. Rows marked <em>published</em> are copied from a benchmark&rsquo;s public leaderboard or from the source paper; every other row is our own run. Bold marks the best score in each column.</p>
 
 <details>
 <summary>How each benchmark is scored, and which rows are reproductions</summary>
 <p><b class="runin">HEST-Benchmark.</b> Nine spatial-transcriptomics cohorts from nine organs. Each spot&rsquo;s tile is encoded, the features are reduced to 256 dimensions with PCA, and a ridge regression predicts the 50 most variable genes. The score is the Pearson correlation for each gene, averaged over genes, over each task&rsquo;s patient-disjoint folds (27 in all), and finally over the nine tasks with equal weight. Our GigaPath run reproduces the current leaderboard: the nine-task mean agrees exactly and every task is within 0.0001 of its entry. The original 2024 paper reported 0.3853 on an older release of the benchmark.</p>
 
-<p><b class="runin">eva.</b> kaiko.ai&rsquo;s evaluation framework, pinned at version 0.4.5. A linear head is trained on frozen CLS features under five seeds, and the score is balanced accuracy. BreakHis is breast tumor images at 40&times; in four classes, two benign and two malignant, scored on its 339-image validation split, which puts the sampling standard error near 0.022 however tight the seed spread looks. It is the only eva task we ran for the teacher; the student and H0-mini ran all five (<a href="#tab-eva">Table 11</a>).</p>
+<p><b class="runin">eva.</b> kaiko.ai&rsquo;s evaluation framework, pinned at version 0.4.5 with its configurations unchanged. On the five patch tasks a linear head is trained on frozen CLS features under five seeds, and the score is balanced accuracy. BreakHis is breast tumor images at 40&times; in four classes, two benign and two malignant, scored on its 339-image validation split, which puts the sampling standard error near 0.022 however tight the seed spread looks. Camelyon16-small asks whether a lymph-node slide holds metastasis, from up to 1,000 tissue patches per slide pooled by an attention-MIL head over 20 runs; MoNuSAC segments four classes of nuclei with a convolutional decoder on the last block&rsquo;s patch tokens, scored by Dice over five runs. Our teacher run covers PatchCamelyon, BACH, BreakHis and MoNuSAC and lands within 0.008 of the leaderboard on each (<a href="#tab-eva">Table 11</a>, <a href="#tab-eva-slide">Table 12</a>). eva&rsquo;s leaderboard average leaves out BACH and needs three tasks we do not have, so there is no official average to quote, and every average here says which tasks it covers.</p>
 
-<p><b class="runin">PLISM.</b> The same 8,139 tissue positions imaged under 91 combinations of staining protocol and slide scanner. For every pair of acquisitions, the two feature vectors of each position are compared by cosine similarity and by whether one retrieves the other among its ten nearest neighbors. The score is the mean of four medians over pairs: cosine similarity over all 4,095 pairs, and top-10 retrieval across scanners, across stains, and across both. No head is trained. Our GigaPath run lands at 0.319 against the published 0.333, a gap we have not traced, so the student is compared with our teacher run rather than with the leaderboard.</p>
+<p><b class="runin">PLISM.</b> The same 8,139 tissue positions imaged under 91 combinations of staining protocol and slide scanner. For every pair of acquisitions, the two feature vectors of each position are compared by cosine similarity and by whether one retrieves the other among its ten nearest neighbors. The score is the mean of four medians over pairs: cosine similarity over all 4,095 pairs, and top-10 retrieval across scanners, across stains, and across both. No head is trained. Prov-GigaPath&rsquo;s published score is out of date. PLISM&rsquo;s leaderboard has listed it at 0.333 since March 2025, before the benchmark shipped any code for running it. The code added that May resizes each 224-pixel tile to 256 and center-crops it back to 224, the preprocessing in Prov-GigaPath&rsquo;s own README, and run that way Prov-GigaPath scores 0.319; the leaderboard entry was never updated. Our teacher run reproduces the old 0.333, all four medians to three decimals, only by skipping the resize, with TF32 arithmetic. We take 0.319 as the teacher&rsquo;s score and run NanoPath and every checkpoint through the same resize. H0-mini keeps the unresized input the benchmark&rsquo;s code gives it, which reproduces its leaderboard entry. The unresized scores stay in <a href="#tab-plism">Table 13</a> for reference.</p>
 
-<p><b class="runin">Prov-GigaPath&rsquo;s tasks.</b> The paper&rsquo;s subtyping and mutation tasks, rebuilt from public TCGA slides: six of its nine subtyping tasks (the other three need cohorts TCGA does not have), and mutation prediction for five LUAD genes, the same five genes pan-cancer, a 17-gene pan-cancer panel, and high tumor mutational burden. Frozen tile features feed a gated attention-MIL head (Ilse et&nbsp;al., 2018), trained and scored over 10 patient-disjoint folds using only slides the student never saw in distillation. That restriction is why the cohorts are small: the slide-level labels cover a 1,503-slide subset of TCGA, only the fifth of it that fell into the held-out split is eligible, and slides an earlier student of ours had trained on are removed as well, which leaves 308 slides across these tasks. The paper ran its LongNet slide encoder on mostly Providence cohorts with other splits, so its numbers are context rather than a matched comparison.</p>
+<p><b class="runin">Prov-GigaPath&rsquo;s tasks.</b> The paper&rsquo;s subtyping and mutation tasks, rebuilt from public TCGA slides: six of its nine subtyping tasks (the other three need cohorts TCGA does not have), and mutation prediction for five LUAD genes, the same five genes pan-cancer, a 17-gene pan-cancer panel, and high tumor mutational burden. Frozen tile features feed a gated attention-MIL head (Ilse et&nbsp;al., 2018), trained and scored over 10 patient-disjoint folds on 1,503 labeled TCGA slides. The student trained on 1,438 of them, so for it these tasks describe the representation rather than measure generalization. The paper ran its LongNet slide encoder on mostly Providence cohorts with other splits, so its numbers are context rather than a matched comparison.</p>
 
-<p><b class="runin">PORPOISE.</b> The histology-only survival model of Chen et&nbsp;al. (2022), retrained on TCGA-LUAD with the authors&rsquo; released labels and five folds and scored by Harrell&rsquo;s c-index. On all 411 cached patients, the paper&rsquo;s own ResNet-50 feature extractor, run through our pipeline, lands at 0.569 against the published 0.548, inside its 95% interval, which is what makes the encoder rows readable.</p>
+<p><b class="runin">PORPOISE.</b> The histology-only survival model of Chen et&nbsp;al. (2022), retrained on TCGA-LUAD with the authors&rsquo; released labels and five folds and scored by Harrell&rsquo;s c-index. We rebuilt its cohort as closely as the public slides allow: 444 of the paper&rsquo;s 453 patients, every tile of a patient&rsquo;s slides in one bag, and five head seeds per fold. The paper&rsquo;s own ResNet-50 feature extractor, run through that pipeline, lands at 0.574 against the published 0.548, inside its 95% interval, which is what makes the encoder rows readable.</p>
 
-<p><b class="runin">H0-mini.</b> Encoded through its 768-dimensional class token, as our student is. Its paper scores HEST with the class token concatenated to the mean patch feature and reports 0.404 under that protocol, against 0.422 for H-optimus-0; the leaderboard entries we reproduce are class-token only, so the H0-mini numbers here are not the ones in its paper. It was distilled on 43 million tiles from 6,093 TCGA slides for 105,000 steps at batch 2,048, about 215 million tile views or five passes over its corpus, against our single pass over 61 million; and because it trained on TCGA, any TCGA slide may be in its training set, including the ones held out from our student.</p>
+<p><b class="runin">GTEx.</b> Our own benchmark, 2,000 slides of normal tissue from 847 donors in the GTEx project. Five tasks come from the pathologists&rsquo; notes that accompany the slides: atherosis in the aorta, fibrosis in the heart&rsquo;s left ventricle, steatosis in the liver, emphysema in the lung and calcification in the tibial artery, each with up to 125 positive slides and matched negatives. A sixth, tissue of origin across 20 tissues, is saturated at 0.996 to 0.999 AUROC for every encoder. Each task is scored by AUROC over 10 donor-disjoint folds under four heads: attention-MIL, logistic regression on mean-pooled tiles, and linear and k-NN probes on the mean-pooled slide embedding. Our student never trained on a GTEx slide and Prov-GigaPath pretrained on Providence slides, so the benchmark carries no training overlap for either encoder.</p>
+
+<p><b class="runin">H0-mini.</b> Encoded through its 768-dimensional class token, as our student is. Its paper scores HEST with the class token concatenated to the mean patch feature and reports 0.404 under that protocol, against 0.422 for H-optimus-0; the leaderboard entries we reproduce are class-token only, so the H0-mini numbers here are not the ones in its paper. It was distilled on the same 6,093 TCGA slides as our student, as 43 million tiles, for 105,000 steps at batch 2,048: about 215 million tile views or five passes over its corpus, against our single pass over 78.9 million.</p>
 </details>
 
 <h3 id="tile-bench">Tile-level benchmarks</h3>
 
 <figure class="fig wide" id="tab-headline">
 <table class="booktabs nums">
-  <caption><b>Table 9.</b> Frozen tile features on the three tile-level benchmarks; higher is better throughout. HEST is mean Pearson <i>r</i> over nine gene-expression tasks, BreakHis is eva&rsquo;s balanced accuracy averaged over five head seeds, and PLISM is the robustness score. The published row comes from each benchmark&rsquo;s public leaderboard. Our H0-mini run reproduces its leaderboard entries: 0.3957 on HEST against the published 0.3958, and 0.541 on PLISM. Bold is the best score in each column.</caption>
+  <caption><b>Table 9.</b> Frozen tile features on the three tile-level benchmarks; higher is better throughout. HEST is mean Pearson <i>r</i> over nine gene-expression tasks, eva is balanced accuracy averaged over its five patch-classification tasks and five head seeds, and PLISM is the robustness score under the benchmark&rsquo;s current code. The published row comes from each benchmark&rsquo;s public leaderboard. Prov-GigaPath&rsquo;s PLISM entry there, 0.333, predates that code and was never updated; run through it, the teacher scores 0.319 (<a href="#tab-plism">Table 13</a>). Our teacher run covers three of the five eva tasks (<a href="#tab-eva">Table 11</a>). Our H0-mini run reproduces its leaderboard entries: 0.3957 on HEST against the published 0.3958, and 0.541 on PLISM. Bold is the best score in each column.</caption>
   <thead>
-    <tr><th>Encoder</th><th>Parameters</th><th>HEST <i>r</i></th><th>BreakHis</th><th>PLISM</th></tr>
+    <tr><th>Encoder</th><th>Parameters</th><th>HEST <i>r</i></th><th>eva, 5 patch tasks</th><th>PLISM</th></tr>
   </thead>
   <tbody>
-    <tr class="ref"><td>Prov-GigaPath, published</td><td>1,135M</td><td>0.3875</td><td>0.827</td><td>0.333</td></tr>
-    <tr><td>Prov-GigaPath, our run (the teacher)</td><td>1,135M</td><td>0.3875</td><td>0.819</td><td>0.319</td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td>103.6M</td><td>0.3848</td><td><b>0.828</b></td><td>0.519</td></tr>
-    <tr><td>H0-mini, our run</td><td>86M</td><td><b>0.3957</b></td><td>0.753</td><td><b>0.541</b></td></tr>
+    <tr class="ref"><td>Prov-GigaPath, published</td><td>1,135M</td><td>0.3875</td><td>0.841</td><td>0.333 <span class="ci">out of date</span></td></tr>
+    <tr><td>Prov-GigaPath, our run (the teacher)</td><td>1,135M</td><td>0.3875</td><td>&mdash;</td><td>0.319</td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>103.6M</td><td>0.3822</td><td>0.837</td><td>0.520</td></tr>
+    <tr><td>H0-mini, our run</td><td>86M</td><td><b>0.3957</b></td><td><b>0.844</b></td><td><b>0.541</b></td></tr>
   </tbody>
 </table>
 </figure>
 
-<p>On the two supervised benchmarks the student keeps essentially all of its teacher: 0.3848 against 0.3875 on HEST, which is 99.3%, and 0.828 against 0.819 on BreakHis, a gap well inside that split&rsquo;s 0.022 sampling standard error. The HEST deficit is not spread evenly. The student is ahead of the teacher on five of the nine tasks, and most of the loss sits in colon and rectum, where the student trails by 0.019 and 0.033, with melanoma accounting for most of the rest (<a href="#tab-hest">Table 10</a>).</p>
+<p>On HEST and on eva&rsquo;s patch tasks the student keeps nearly all of its teacher: 0.3822 against 0.3875 on HEST, which is 98.6%, and 0.837 against the published 0.841 over the five patch tasks. The HEST deficit is not spread evenly. The student is ahead of the teacher on four of the nine tasks, and the whole loss sits in colon and rectum, where it trails by 0.030 and 0.029; the other seven tasks together come out 0.012 ahead (<a href="#tab-hest">Table 10</a>). On eva it matches or beats the published teacher on PatchCamelyon, CRC, BACH and Gleason, and trails by 0.039 on BreakHis (<a href="#tab-eva">Table 11</a>), the noisiest task in the suite: its score moved by up to 0.07 between consecutive checkpoints and stood at the published 0.827 four tenths of the way through the epoch.</p>
 
-<p>PLISM is where the student stops resembling its teacher. Asked to find the same tissue on a different scanner, the teacher puts the match among its ten nearest neighbors 57% of the time and the student 91%; across staining protocols, 11% against 26% (<a href="#tab-plism">Table 12</a>). H0-mini scores higher still overall, 0.541 against 0.519, and shows the same shift relative to its own teacher, 0.541 against H-optimus-0&rsquo;s published 0.480, the robustness gain its paper is built around (Filiot et&nbsp;al., 2025). That is what one would expect if distilling on a fixed corpus smooths away acquisition-specific detail the teacher still encodes, and nothing in it depends on the pruned weights: in our earlier smaller-scale run, a student of the same shape trained from random weights under the same recipe scored 0.546 and a random-start ViT-B 0.558, against 0.524 for the pruned student (<a href="#recovery">Recovery</a>). It is a useful property in a tile encoder, but it means the student&rsquo;s representation has changed, not merely shrunk.</p>
+<p>Past patch classification the picture splits. On Camelyon16-small, which pools a slide&rsquo;s patches with attention-MIL, the student scores 0.837 against the published 0.815, about one standard deviation of its 20 runs. On MoNuSAC nucleus segmentation, which reads the patch-token map rather than the class token, it scores 0.644 against our teacher run&rsquo;s 0.683 and the published 0.680, the largest gap to the teacher on any benchmark we could anchor (<a href="#tab-eva-slide">Table 12</a>). Averaged the way eva&rsquo;s leaderboard averages, over the five of its classification tasks we could run, the student and the published teacher both come to 0.852.</p>
+
+<p>PLISM is where the student stops resembling its teacher, 0.520 against 0.319. Asked to find the same tissue on a different scanner, the teacher puts the match among its ten nearest neighbors 57% of the time and the student 91%; across staining protocols, 11% against 27% (<a href="#tab-plism">Table 13</a>). H0-mini scores higher still, 0.541 against 0.520, and shows the same shift relative to its own teacher, 0.541 against H-optimus-0&rsquo;s published 0.480, the robustness gain its paper is built around (Filiot et&nbsp;al., 2025). That is what one would expect if distilling on a fixed corpus smooths away acquisition-specific detail the teacher still encodes. It is a useful property in a tile encoder, but it means the student&rsquo;s representation has changed, not merely shrunk, and robustness is not accuracy: the same student trails its teacher on HEST and on MoNuSAC.</p>
 
 <details>
 <summary>HEST, task by task <span class="tag">Table 10</span></summary>
@@ -912,7 +915,7 @@ window.MathJax = {
     <tr class="ref"><td>H-optimus-0, published</td><td><b>0.5976</b></td><td><b>0.3848</b></td><td>0.4911</td><td><b>0.6454</b></td><td><b>0.3086</b></td><td><b>0.2216</b></td><td><b>0.2676</b></td><td><b>0.5590</b></td><td>0.2591</td><td><b>0.4150</b></td></tr>
     <tr class="ref"><td>Prov-GigaPath, published</td><td>0.5515</td><td>0.3699</td><td>0.4746</td><td>0.5619</td><td>0.2992</td><td>0.1961</td><td>0.2430</td><td>0.5412</td><td>0.2500</td><td>0.3875</td></tr>
     <tr><td>Prov-GigaPath, our run</td><td>0.5515</td><td>0.3698</td><td>0.4746</td><td>0.5618</td><td>0.2992</td><td>0.1960</td><td>0.2429</td><td>0.5411</td><td>0.2500</td><td>0.3875</td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td>0.5663</td><td>0.3750</td><td>0.4770</td><td>0.5475</td><td>0.2800</td><td>0.1633</td><td>0.2567</td><td>0.5395</td><td>0.2580</td><td>0.3848</td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>0.5679</td><td>0.3759</td><td>0.4722</td><td>0.5474</td><td>0.2688</td><td>0.1672</td><td>0.2395</td><td>0.5454</td><td>0.2553</td><td>0.3822</td></tr>
     <tr class="ref"><td>H0-mini, published</td><td>0.5862</td><td>0.3687</td><td><b>0.4919</b></td><td>0.6012</td><td>0.2494</td><td>0.1863</td><td>0.2670</td><td>0.5482</td><td><b>0.2629</b></td><td>0.3958</td></tr>
     <tr><td>H0-mini, our run</td><td>0.5862</td><td>0.3684</td><td><b>0.4919</b></td><td>0.6012</td><td>0.2494</td><td>0.1863</td><td>0.2670</td><td>0.5482</td><td><b>0.2629</b></td><td>0.3957</td></tr>
   </tbody>
@@ -924,34 +927,54 @@ window.MathJax = {
 <summary>eva, all five patch tasks <span class="tag">Table 11</span></summary>
 <figure class="fig wide" id="tab-eva">
 <table class="booktabs compact nums">
-  <caption><b>Table 11.</b> eva patch classification, balanced accuracy with the standard deviation over five head seeds. PatchCamelyon is scored on its test split and the others on eva&rsquo;s validation split. Published rows are eva&rsquo;s leaderboard at the pinned version. Our own GigaPath run covers BreakHis only, at 0.819 <span class="ci">&plusmn;0.003</span> (<a href="#tab-headline">Table 9</a>).</caption>
+  <caption><b>Table 11.</b> eva patch classification, balanced accuracy with the standard deviation over five head seeds. PatchCamelyon is scored on its test split and the others on eva&rsquo;s validation split. Published rows are eva&rsquo;s leaderboard at the pinned version; our teacher run covers three of the five tasks. The mean weights the five tasks equally and is not eva&rsquo;s leaderboard average, which leaves out BACH.</caption>
   <thead>
-    <tr><th>Encoder</th><th>BACH</th><th>BreakHis</th><th>CRC</th><th>Gleason</th><th>PatchCamelyon</th></tr>
+    <tr><th>Encoder</th><th>BACH</th><th>BreakHis</th><th>CRC</th><th>Gleason</th><th>PatchCamelyon</th><th>Mean</th></tr>
   </thead>
   <tbody>
-    <tr class="ref"><td>H-optimus-0, published</td><td>0.759</td><td>0.801</td><td>0.955</td><td>0.770</td><td>0.943</td></tr>
-    <tr class="ref"><td>Prov-GigaPath, published</td><td>0.759</td><td>0.827</td><td>0.951</td><td>0.724</td><td><b>0.945</b></td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td>0.744 <span class="ci">&plusmn;0.005</span></td><td><b>0.828</b> <span class="ci">&plusmn;0.002</span></td><td>0.950 <span class="ci">&plusmn;0.001</span></td><td>0.735 <span class="ci">&plusmn;0.005</span></td><td>0.942 <span class="ci">&plusmn;0.001</span></td></tr>
-    <tr><td>H0-mini, our run</td><td><b>0.786</b> <span class="ci">&plusmn;0.011</span></td><td>0.753 <span class="ci">&plusmn;0.002</span></td><td><b>0.962</b> <span class="ci">&plusmn;0.001</span></td><td><b>0.778</b> <span class="ci">&plusmn;0.005</span></td><td>0.942 <span class="ci">&plusmn;0.001</span></td></tr>
+    <tr class="ref"><td>H-optimus-0, published</td><td>0.759</td><td>0.801</td><td>0.955</td><td>0.770</td><td>0.943</td><td><b>0.846</b></td></tr>
+    <tr class="ref"><td>Prov-GigaPath, published</td><td>0.759</td><td><b>0.827</b></td><td>0.951</td><td>0.724</td><td>0.945</td><td>0.841</td></tr>
+    <tr><td>Prov-GigaPath, our run</td><td>0.764 <span class="ci">&plusmn;0.003</span></td><td>0.819 <span class="ci">&plusmn;0.003</span></td><td>&mdash;</td><td>&mdash;</td><td>0.944 <span class="ci">&plusmn;0.002</span></td><td>&mdash;</td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>0.760 <span class="ci">&plusmn;0.014</span></td><td>0.788 <span class="ci">&plusmn;0.010</span></td><td>0.957 <span class="ci">&plusmn;0.001</span></td><td>0.735 <span class="ci">&plusmn;0.009</span></td><td><b>0.946</b> <span class="ci">&plusmn;0.001</span></td><td>0.837</td></tr>
+    <tr><td>H0-mini, our run</td><td><b>0.786</b> <span class="ci">&plusmn;0.011</span></td><td>0.753 <span class="ci">&plusmn;0.002</span></td><td><b>0.962</b> <span class="ci">&plusmn;0.001</span></td><td><b>0.778</b> <span class="ci">&plusmn;0.005</span></td><td>0.942 <span class="ci">&plusmn;0.001</span></td><td>0.844</td></tr>
   </tbody>
 </table>
 </figure>
 </details>
 
 <details>
-<summary>PLISM, component by component <span class="tag">Table 12</span></summary>
-<figure class="fig wide" id="tab-plism">
+<summary>eva on slides and nuclei <span class="tag">Table 12</span></summary>
+<figure class="fig" id="tab-eva-slide">
 <table class="booktabs compact nums">
-  <caption><b>Table 12.</b> PLISM robustness. Every column is a median over acquisition pairs: cosine similarity between the two feature vectors of the same position over all 4,095 pairs, and top-10 retrieval accuracy across scanners (273 pairs), across stains (546) and across both (3,276). The score is the mean of the four. Our H0-mini run matches its leaderboard entry in every column.</caption>
+  <caption><b>Table 12.</b> eva beyond patch classification. Camelyon16-small and Camelyon16 are test balanced accuracy over 20 runs of an attention-MIL head on up to 1,000 and 10,000 tissue patches per slide; MoNuSAC is Dice over five runs of a convolutional decoder on the last block&rsquo;s patch tokens, under eva&rsquo;s unchanged mask protocol. Published values are eva&rsquo;s leaderboard, which has no full Camelyon16 entry. MoNuSAC&rsquo;s images are cut from TCGA slides, and the student trained on slides from 18 of its 25 test patients; the teacher never saw TCGA.</caption>
   <thead>
-    <tr><th>Encoder</th><th>Score</th><th>Cosine, all</th><th>Top-10, scanner</th><th>Top-10, stain</th><th>Top-10, both</th></tr>
+    <tr><th>Encoder</th><th>Camelyon16-small</th><th>Camelyon16</th><th>MoNuSAC Dice</th></tr>
   </thead>
   <tbody>
-    <tr class="ref"><td>H-optimus-0, published</td><td>0.480</td><td>0.685</td><td>0.744</td><td><b>0.327</b></td><td>0.166</td></tr>
-    <tr class="ref"><td>Prov-GigaPath, published</td><td>0.333</td><td>0.570</td><td>0.592</td><td>0.118</td><td>0.054</td></tr>
-    <tr><td>Prov-GigaPath, our run</td><td>0.319</td><td>0.553</td><td>0.566</td><td>0.110</td><td>0.049</td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td>0.519</td><td>0.744</td><td><b>0.912</b></td><td>0.261</td><td>0.157</td></tr>
-    <tr><td>H0-mini, our run</td><td><b>0.541</b></td><td><b>0.800</b></td><td>0.864</td><td>0.318</td><td><b>0.183</b></td></tr>
+    <tr class="ref"><td>Prov-GigaPath, published</td><td>0.815</td><td>&mdash;</td><td>0.680</td></tr>
+    <tr><td>Prov-GigaPath, our run</td><td>&mdash;</td><td>&mdash;</td><td><b>0.683</b> <span class="ci">&plusmn;0.007</span></td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td><b>0.837</b> <span class="ci">&plusmn;0.022</span></td><td>0.934 <span class="ci">&plusmn;0.013</span></td><td>0.644 <span class="ci">&plusmn;0.007</span></td></tr>
+  </tbody>
+</table>
+</figure>
+</details>
+
+<details>
+<summary>PLISM, component by component <span class="tag">Table 13</span></summary>
+<figure class="fig wide" id="tab-plism">
+<table class="booktabs compact nums">
+  <caption><b>Table 13.</b> PLISM robustness. Every column is a median over acquisition pairs: cosine similarity between the two feature vectors of the same position over all 4,095 pairs, and top-10 retrieval accuracy across scanners (273 pairs), across stains (546) and across both (3,276). The score is the mean of the four. Input is the size PLISM&rsquo;s 224-pixel tiles are resized to before the 224-pixel center crop. Our first three runs follow the benchmark&rsquo;s current code, which resizes Prov-GigaPath&rsquo;s tiles to 256 as Prov-GigaPath&rsquo;s README does. NanoPath is run the same way; H0-mini&rsquo;s tiles go in unresized, as the benchmark runs it, and match its leaderboard entry in every column. The published Prov-GigaPath row predates that code and was never updated. Only an unresized run matches it: our teacher run without the resize reproduces it exactly, and NanoPath&rsquo;s unresized score is listed for reference.</caption>
+  <thead>
+    <tr><th>Encoder</th><th>Input</th><th>Score</th><th>Cosine, all</th><th>Top-10, scanner</th><th>Top-10, stain</th><th>Top-10, both</th></tr>
+  </thead>
+  <tbody>
+    <tr class="ref"><td>H-optimus-0, published</td><td>&mdash;</td><td>0.480</td><td>0.685</td><td>0.744</td><td><b>0.327</b></td><td>0.166</td></tr>
+    <tr><td>Prov-GigaPath, our run</td><td>256</td><td>0.319</td><td>0.553</td><td>0.566</td><td>0.110</td><td>0.049</td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>256</td><td>0.520</td><td>0.746</td><td>0.909</td><td>0.268</td><td>0.158</td></tr>
+    <tr><td>H0-mini, our run</td><td>224</td><td><b>0.541</b></td><td><b>0.800</b></td><td>0.864</td><td>0.318</td><td><b>0.183</b></td></tr>
+    <tr class="ref"><td>Prov-GigaPath, published (out of date)</td><td>224</td><td>0.333</td><td>0.570</td><td>0.592</td><td>0.118</td><td>0.054</td></tr>
+    <tr><td>Prov-GigaPath, our run</td><td>224</td><td>0.333</td><td>0.570</td><td>0.592</td><td>0.118</td><td>0.054</td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>224</td><td>0.530</td><td>0.756</td><td><b>0.921</b></td><td>0.274</td><td>0.169</td></tr>
   </tbody>
 </table>
 </figure>
@@ -961,12 +984,10 @@ window.MathJax = {
 
 <figure class="fig" id="fig-recovery">
   <div class="panel">
-    <div class="fig-status">Incomplete <em>&middot; 2 of 11 checkpoints scored with live weights</em></div>
     <div class="chart-pair">
-      <svg viewBox="0 0 310 232" role="img" aria-label="Incomplete. HEST mean Pearson r of the student's live weights: 0.236 at step zero and 0.385 at the end of the epoch, against the teacher's 0.387. The nine checkpoints in between have not been scored yet.">
+      <svg viewBox="0 0 310 232" role="img" aria-label="HEST mean Pearson r of the student's live weights at step zero and at every tenth of the epoch: 0.236 at step zero, 0.393 after the first tenth, above the teacher's 0.387, within 0.002 of the teacher until six tenths of the way through, and 0.382 at the end.">
         <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
           <text x="52" y="16" font-size="11.5" font-weight="600" fill="#33363c">HEST, mean Pearson <tspan font-style="italic">r</tspan></text>
-          <rect x="63.5" y="30" width="207" height="160" fill="#f6f4f0" />
           <g stroke="#ebe8e2" stroke-width="1">
             <line x1="52" y1="30" x2="282" y2="30" />
             <line x1="52" y1="70" x2="282" y2="70" />
@@ -988,36 +1009,31 @@ window.MathJax = {
             <text x="167" y="224">epoch</text>
           </g>
           <line x1="52" y1="40" x2="282" y2="40" stroke="#2b4257" stroke-width="1.5" stroke-dasharray="5 4" />
-          <g fill="#ffffff" stroke="#9aa0a6" stroke-width="1.3">
-            <circle cx="75" cy="190" r="2.5" />
-            <circle cx="98" cy="190" r="2.5" />
-            <circle cx="121" cy="190" r="2.5" />
-            <circle cx="144" cy="190" r="2.5" />
-            <circle cx="167" cy="190" r="2.5" />
-            <circle cx="190" cy="190" r="2.5" />
-            <circle cx="213" cy="190" r="2.5" />
-            <circle cx="236" cy="190" r="2.5" />
-            <circle cx="259" cy="190" r="2.5" />
-          </g>
-          <g font-size="11" fill="#9aa0a6" text-anchor="middle">
-            <text x="167" y="100">9 checkpoints</text>
-            <text x="167" y="114">not yet scored</text>
-          </g>
+          <polyline fill="none" stroke="#7a2d24" stroke-width="1.8" stroke-linejoin="round" points="52,161.4 75,35.9 98,41.3 121,39.8 144,39.4 167,40.2 190,41.4 213,43.1 236,45.0 259,44.2 282,44.2" />
           <g fill="#7a2d24">
             <circle cx="52" cy="161.4" r="3.2" />
-            <circle cx="282" cy="42.2" r="3.2" />
+            <circle cx="75" cy="35.9" r="2.6" />
+            <circle cx="98" cy="41.3" r="2.6" />
+            <circle cx="121" cy="39.8" r="2.6" />
+            <circle cx="144" cy="39.4" r="2.6" />
+            <circle cx="167" cy="40.2" r="2.6" />
+            <circle cx="190" cy="41.4" r="2.6" />
+            <circle cx="213" cy="43.1" r="2.6" />
+            <circle cx="236" cy="45.0" r="2.6" />
+            <circle cx="259" cy="44.2" r="2.6" />
+            <circle cx="282" cy="44.2" r="3.2" />
           </g>
           <g font-size="11" fill="#7a2d24">
             <text x="59" y="165">0.236</text>
-            <text x="282" y="58" text-anchor="end">0.385</text>
+            <text x="82" y="31">0.393</text>
+            <text x="282" y="58" text-anchor="end">0.382</text>
           </g>
           <text x="282" y="33" font-size="11" font-weight="600" fill="#2b4257" text-anchor="end">teacher 0.387</text>
         </g>
       </svg>
-      <svg viewBox="310 0 310 232" role="img" aria-label="Incomplete. PLISM score of the student's live weights: 0.236 at step zero, almost all of it the collapsed cosine-similarity term rather than retrieval, and 0.519 at the end of the epoch, against the teacher's 0.319. The nine checkpoints in between have not been scored yet.">
+      <svg viewBox="310 0 310 232" role="img" aria-label="PLISM score of the student's live weights at 256-pixel input, at step zero and at every tenth of the epoch: 0.236 at step zero, almost all of it the collapsed cosine-similarity term rather than retrieval; 0.555 after the first tenth, near 0.55 until seven tenths of the way through with a peak of 0.558, and 0.520 at the end, against the teacher's 0.319.">
         <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-          <text x="362" y="16" font-size="11.5" font-weight="600" fill="#33363c">PLISM score</text>
-          <rect x="373.5" y="30" width="207" height="160" fill="#f6f4f0" />
+          <text x="362" y="16" font-size="11.5" font-weight="600" fill="#33363c">PLISM score, 256 px</text>
           <g stroke="#ebe8e2" stroke-width="1">
             <line x1="362" y1="30" x2="592" y2="30" />
             <line x1="362" y1="70" x2="592" y2="70" />
@@ -1039,94 +1055,110 @@ window.MathJax = {
             <text x="477" y="224">epoch</text>
           </g>
           <line x1="362" y1="142.4" x2="592" y2="142.4" stroke="#2b4257" stroke-width="1.5" stroke-dasharray="5 4" />
-          <g fill="#ffffff" stroke="#9aa0a6" stroke-width="1.3">
-            <circle cx="385" cy="190" r="2.5" />
-            <circle cx="408" cy="190" r="2.5" />
-            <circle cx="431" cy="190" r="2.5" />
-            <circle cx="454" cy="190" r="2.5" />
-            <circle cx="477" cy="190" r="2.5" />
-            <circle cx="500" cy="190" r="2.5" />
-            <circle cx="523" cy="190" r="2.5" />
-            <circle cx="546" cy="190" r="2.5" />
-            <circle cx="569" cy="190" r="2.5" />
-          </g>
-          <g font-size="11" fill="#9aa0a6" text-anchor="middle">
-            <text x="477" y="100">9 checkpoints</text>
-            <text x="477" y="114">not yet scored</text>
-          </g>
+          <polyline fill="none" stroke="#7a2d24" stroke-width="1.8" stroke-linejoin="round" points="362,175.6 385,48.0 408,50.8 431,50.8 454,46.8 477,52.4 500,48.0 523,50.4 546,54.8 569,58.0 592,62.0" />
           <g fill="#7a2d24">
             <circle cx="362" cy="175.6" r="3.2" />
-            <circle cx="592" cy="62.4" r="3.2" />
+            <circle cx="385" cy="48.0" r="2.6" />
+            <circle cx="408" cy="50.8" r="2.6" />
+            <circle cx="431" cy="50.8" r="2.6" />
+            <circle cx="454" cy="46.8" r="2.6" />
+            <circle cx="477" cy="52.4" r="2.6" />
+            <circle cx="500" cy="48.0" r="2.6" />
+            <circle cx="523" cy="50.4" r="2.6" />
+            <circle cx="546" cy="54.8" r="2.6" />
+            <circle cx="569" cy="58.0" r="2.6" />
+            <circle cx="592" cy="62.0" r="3.2" />
           </g>
           <g font-size="11" fill="#7a2d24">
             <text x="369" y="180">0.236</text>
-            <text x="592" y="79" text-anchor="end">0.519</text>
+            <text x="454" y="39" text-anchor="middle">0.558</text>
+            <text x="592" y="79" text-anchor="end">0.520</text>
           </g>
           <text x="592" y="136" font-size="11" font-weight="600" fill="#2b4257" text-anchor="end">teacher 0.319</text>
         </g>
       </svg>
     </div>
   </div>
-  <figcaption><b>Figure 10.</b> Incomplete. Frozen features from the student&rsquo;s live weights at step zero and at the end of the epoch, with the teacher dashed. The shaded span holds the nine checkpoints in between, a tenth of an epoch apart and marked on the axis, which have not yet been scored with live weights. The two step-zero values coincide at 0.236, and the PLISM one is not a retrieval score: it is almost entirely the sliced network&rsquo;s degenerate 0.936 cosine similarity divided by four, the three retrieval medians adding a few thousandths (<a href="#cost">What the cut costs</a>). The PLISM panel therefore starts from a measure of collapse and ends at a measure of retrieval; the component that actually recovers is top-10 retrieval across scanners, 0.002 to 0.912.</figcaption>
+  <figcaption><b>Figure 10.</b> Frozen features from the student&rsquo;s live weights at step zero and at every tenth of the epoch, with the teacher dashed. PLISM is scored with the benchmark&rsquo;s current preprocessing, under which the teacher scores 0.319 rather than the out-of-date 0.333 on its leaderboard. The two step-zero values coincide at 0.236, and the PLISM one is not a retrieval score: it is almost entirely the sliced network&rsquo;s degenerate 0.936 cosine similarity divided by four, the three retrieval medians adding a few thousandths (<a href="#cost">What the cut costs</a>). The PLISM panel therefore starts from a measure of collapse and ends at a measure of retrieval; the component that actually recovers is top-10 retrieval across scanners, 0.002 to 0.909.</figcaption>
 </figure>
 
-<p>At step zero the sliced network scores 0.236 on HEST and, by coincidence, 0.236 on PLISM as well. The two numbers mean different things: the HEST value is the untrained floor of <a href="#fig-init">Figure 5</a>, and the PLISM value is the collapsed cosine term with almost no retrieval behind it. One epoch later, after 59,592 steps and 61 million tiles, it scores 0.385 on HEST, against the teacher&rsquo;s 0.387, and 0.519 on PLISM, well clear of the teacher&rsquo;s 0.319, with scanner retrieval having gone from 0.002 to 0.912. The checkpoints in between are what will show whether that recovery comes early in the epoch or builds across it, and this figure will be filled in once they have been scored with live weights, like every other number in this post.</p>
+<p>At step zero the sliced network scores 0.236 on HEST and, by coincidence, 0.236 on PLISM as well. The two numbers mean different things: the HEST value is what a ridge probe recovers from the sliced network&rsquo;s features (<a href="#fig-init">Figure 5</a>), and the PLISM value is the collapsed cosine term with almost no retrieval behind it. The first tenth of the epoch, 7,708 steps and 7.9 million tiles, does almost all of the repair: HEST reaches 0.393, the best of the run and above the teacher&rsquo;s 0.387, PLISM reaches 0.555, and the eva patch-task mean goes from 0.590 to 0.830. After that the benchmarks part ways. HEST stays within 0.002 of the teacher until six tenths of the way through and then drifts down to 0.382. PLISM holds near 0.55 until seven tenths and falls to 0.520 as the learning rate anneals. A linear probe for tissue of origin on TCGA tiles improves at almost every checkpoint and finishes level with the teacher, 0.631 against 0.632 balanced accuracy, though on slides the student trained on, so it tracks fit rather than generalization. The eva mean wanders between 0.828 and 0.843, mostly because BACH and BreakHis are small (<a href="#tab-ckpt">Table 14</a>).</p>
 
-<p>Even complete, the curve could not say how much of the recovery came from the pruned weights. Answering that takes the same architecture trained from random weights under an identical recipe, and this run has no such twin. The student that preceded it did. Our v4 student &mdash; 96.8M parameters, 576 channels wide and 31 blocks deep, cut from the same teacher by the same procedure &mdash; was trained beside two controls under one recipe: a random-start network of exactly its shape, and a random-start ViT-B. Both controls kept the teacher-derived block and channel mappings for their hidden-state taps and neck, so they test the inherited weights rather than the whole pruning map. The run was small, 1.2 million tiles from 104 slides taken through 14 epochs and 16,688 steps, one seed each. At step zero the pruned student scored 0.229 on HEST against 0.245 for its random-start twin. After one epoch it had reached 0.381 where the twin stood at 0.293, and the twin had caught up by epoch four. By the end of training the order had reversed: 0.380 for the pruned student, whose curve had peaked at 0.385 at epoch three, against 0.385 for its twin and 0.384 for ViT-B. On PLISM the pruned student finished at 0.524, the twin at 0.546 and ViT-B at 0.558.</p>
+<p>Some intermediate checkpoints score higher than the last: HEST at a tenth of the epoch, PLISM and the eva mean at four tenths. Choosing a checkpoint by those scores would bias the very comparisons it was chosen on, and with nothing held out of distillation there is no separate source to choose by, so we report the end of the epoch, where the schedule ends.</p>
 
-<p>The reading those numbers support is that the inherited weights buy speed early in training, and that with enough distillation a random start catches up or passes. Whether the same holds at this run&rsquo;s scale, 61 million tiles and a 10.95&times; cut, is the control we have configured and not yet trained. We report the checkpoint at the end of the epoch because the schedule ends there, not because anything chose it. One seed, descriptive point estimates.</p>
-
-<h3 id="slide-bench">Slide-level tasks on TCGA</h3>
-
-<figure class="fig wide" id="tab-subtype">
+<details>
+<summary>Every checkpoint, benchmark by benchmark <span class="tag">Table 14</span></summary>
+<figure class="fig wide" id="tab-ckpt">
 <table class="booktabs compact nums">
-  <caption><b>Table 13.</b> Cancer subtyping on TCGA, the six tasks from the Prov-GigaPath paper that public slides can support: lung adenocarcinoma against squamous cell carcinoma (NSCLC); clear-cell, papillary and chromophobe renal carcinoma (RCC); esophageal against stomach cancer (EGC); colon against rectal cancer (COADREAD); cholangiocarcinoma against hepatocellular carcinoma (HB); and invasive ductal against lobular breast carcinoma (BRCA). AUROC, mean over 10 patient-disjoint folds of attention-MIL on frozen tile features, using only slides the student never saw in distillation: 97 for NSCLC, 49 for HB, 38 for BRCA, 30 for RCC, 20 for COADREAD and 18 for EGC. A fold counts only when its test slides include both classes, so the EGC and COADREAD means rest on a few folds of two or three slides each. The published row is GigaPath&rsquo;s LongNet slide encoder on the paper&rsquo;s own cohorts and random splits, and its EGC task has three classes where ours has two.</caption>
+  <caption><b>Table 14.</b> Frozen live-weight features at step zero and at every tenth of the epoch, about 7,708 optimizer steps apart, through step 77,085 at the end; the teacher column is our run under the same settings. PLISM is at 256-pixel input, and eva is the mean of the five patch tasks. The tissue probe is tile-level balanced accuracy of a linear probe over 17 TCGA tissues of origin on 1,503 slides, 1,438 of which the student trained on. Bold is the best checkpoint in each row.</caption>
   <thead>
-    <tr><th>Encoder</th><th>NSCLC</th><th>RCC</th><th>EGC</th><th>COADREAD</th><th>HB</th><th>BRCA</th></tr>
+    <tr><th>Epoch</th><th>0</th><th>0.1</th><th>0.2</th><th>0.3</th><th>0.4</th><th>0.5</th><th>0.6</th><th>0.7</th><th>0.8</th><th>0.9</th><th>1.0</th><th>Teacher</th></tr>
   </thead>
   <tbody>
-    <tr class="ref"><td>Prov-GigaPath, published</td><td>0.756</td><td>0.953</td><td>0.874</td><td><b>0.834</b></td><td>0.905</td><td><b>0.899</b></td></tr>
-    <tr><td>Prov-GigaPath, our run</td><td>0.863</td><td>0.927</td><td><b>1.000</b></td><td>0.667</td><td><b>1.000</b></td><td>0.417</td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td>0.874</td><td>0.913</td><td>0.750</td><td>0.750</td><td>0.975</td><td>0.458</td></tr>
-    <tr><td>H0-mini, our run</td><td><b>0.890</b></td><td><b>0.958</b></td><td>0.750</td><td>0.667</td><td>0.875</td><td>0.583</td></tr>
+    <tr><td>HEST <i>r</i></td><td>0.2357</td><td><b>0.3926</b></td><td>0.3859</td><td>0.3878</td><td>0.3882</td><td>0.3872</td><td>0.3858</td><td>0.3836</td><td>0.3812</td><td>0.3823</td><td>0.3822</td><td>0.3875</td></tr>
+    <tr><td>PLISM, 256 px</td><td>0.236</td><td>0.555</td><td>0.548</td><td>0.548</td><td><b>0.558</b></td><td>0.544</td><td>0.555</td><td>0.549</td><td>0.538</td><td>0.530</td><td>0.520</td><td>0.319</td></tr>
+    <tr><td>eva, 5 patch tasks</td><td>0.5898</td><td>0.8295</td><td>0.8327</td><td>0.8352</td><td><b>0.8429</b></td><td>0.8284</td><td>0.8337</td><td>0.8404</td><td>0.8358</td><td>0.8382</td><td>0.8371</td><td>&mdash;</td></tr>
+    <tr><td>PatchCamelyon</td><td>0.7603</td><td>0.9393</td><td>0.9365</td><td>0.9419</td><td>0.9393</td><td>0.9401</td><td>0.9459</td><td>0.9443</td><td>0.9456</td><td>0.9459</td><td><b>0.9462</b></td><td>0.9436</td></tr>
+    <tr><td>BreakHis</td><td>0.3445</td><td>0.7684</td><td>0.7733</td><td>0.8105</td><td><b>0.8271</b></td><td>0.7581</td><td>0.7771</td><td>0.8023</td><td>0.7901</td><td>0.7914</td><td>0.7875</td><td>0.8191</td></tr>
+    <tr><td>TCGA tissue, linear</td><td>0.2650</td><td>0.6009</td><td>0.6103</td><td>0.6126</td><td>0.6177</td><td>0.6170</td><td>0.6160</td><td>0.6244</td><td>0.6271</td><td>0.6285</td><td><b>0.6312</b></td><td>0.6321</td></tr>
+  </tbody>
+</table>
+</figure>
+</details>
+
+<p>The curve cannot say how much of the recovery came from the pruned weights. Answering that takes the same architecture trained from random weights under an identical recipe, and this run has no such twin. Nearly all of the repair is done within a tenth of the epoch, but without a random start under the same recipe there is no telling how much of that speed the inherited weights bought, or whether a random start would catch up by the end. At this run&rsquo;s scale, 78.9 million tiles and a 10.95&times; cut, that control has not yet been run. One seed, descriptive point estimates.</p>
+
+<h3 id="slide-bench">Slide-level tasks</h3>
+
+<p>Slide-level benchmarks are where training overlap is hardest to avoid, because most public slide cohorts come from TCGA and so does the student&rsquo;s training set. It trained on the slides of 443 of the 444 patients in PORPOISE&rsquo;s LUAD cohort and on 1,438 of the 1,503 labeled slides behind our Prov-GigaPath tasks, though never on their labels; Prov-GigaPath, pretrained on Providence slides, saw none of them. GTEx is the exception, and the reason we built it: 2,000 slides of normal tissue that no encoder here trained on. Camelyon16, eva&rsquo;s slide-level task, is with the other eva results (<a href="#tab-eva-slide">Table 12</a>).</p>
+
+<figure class="fig" id="tab-gtex">
+<table class="booktabs compact nums">
+  <caption><b>Table 15.</b> GTEx findings: AUROC averaged over the five findings tasks and 10 donor-disjoint folds, for four heads on frozen tile features: attention-MIL, logistic regression on mean-pooled tiles, and linear and k-NN probes on the mean-pooled slide embedding. Bags are capped at 2,048 tiles. Tissue of origin, the sixth task, is saturated at 0.996 to 0.999 for every encoder and is left out.</caption>
+  <thead>
+    <tr><th>Encoder</th><th>Attention-MIL</th><th>Mean-pool LR</th><th>Linear probe</th><th>k-NN probe</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Prov-GigaPath, our run</td><td><b>0.770</b></td><td>0.735</td><td>0.747</td><td><b>0.732</b></td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>0.759</td><td><b>0.743</b></td><td><b>0.750</b></td><td>0.726</td></tr>
   </tbody>
 </table>
 </figure>
 
-<p>Restricted to slides the student never saw, the subtyping cohorts shrink to between 18 and 97 slides, and the ordering of encoders stops meaning much. On NSCLC, the largest cohort, the student edges the teacher, 0.874 against 0.863, and H0-mini leads both at 0.890. Elsewhere single slides move the averages by large steps: the teacher&rsquo;s 1.000 against the student&rsquo;s 0.750 on EGC comes from at most four folds of two slides each, and every encoder is near chance on breast subtyping.</p>
+<p>On GTEx the student is within 0.011 of its teacher under every head: ahead with mean-pooled logistic regression and the linear probe, 0.743 against 0.735 and 0.750 against 0.747, and behind with k-NN and attention-MIL, 0.726 against 0.732 and 0.759 against 0.770 (<a href="#tab-gtex">Table 15</a>). Most of the attention-MIL gap is one finding, fibrosis in the heart&rsquo;s left ventricle, at 0.675 against 0.716, and aorta atherosis sits barely above chance for every encoder. The test folds hold 24 to 26 slides each, so differences of a few thousandths are not separations.</p>
 
-<p>Mutation prediction has more slides to work with, 83 for LUAD and 291 pan-cancer, and there the student is ahead of the teacher on all four panels, by 0.006 to 0.047 macro AUROC (<a href="#tab-mut">Table 14</a>). Survival separates nothing we would trust. The 82 LUAD patients the student never saw include only 34 deaths, and on them the teacher, the student and H0-mini score 0.637, 0.612 and 0.591 (<a href="#tab-surv">Table 15</a>).</p>
+<p>Survival is the PORPOISE reproduction on TCGA-LUAD. The paper&rsquo;s own ResNet-50 features, run through our pipeline, reach a c-index of 0.574, inside the published interval around 0.548, and the student reaches 0.582; with standard errors of 0.022 the two cannot be separated (<a href="#tab-surv">Table 16</a>). Histology alone predicts LUAD survival weakly: the paper&rsquo;s own result was not significant, and both encoders&rsquo; pooled 95% intervals are about 0.10 wide. Since the student has seen nearly every slide in this cohort, the result says it is no worse than a ResNet-50 here, not that it generalizes.</p>
+
+<p>The Prov-GigaPath tasks are descriptive. On the full labeled corpus the student is level with its teacher on classification, 0.922 against 0.923 macro AUROC over tissue of origin and five subtyping tasks, ahead on tile-level probes, 0.914 against 0.905, and behind on mutation prediction by 0.007 and on breast ductal-against-lobular subtyping by 0.033, a gap the neck mostly closes (<a href="#tab-tcga">Table 17</a>). Because the student trained on these slides, none of that measures generalization; it says the representation still carries what the tasks need.</p>
 
 <details>
-<summary>Mutation prediction <span class="tag">Table 14</span></summary>
-<figure class="fig wide" id="tab-mut">
+<summary>Survival: the PORPOISE reproduction <span class="tag">Table 16</span></summary>
+<figure class="fig" id="tab-surv">
 <table class="booktabs compact nums">
-  <caption><b>Table 14.</b> Mutation and tumor-mutational-burden prediction, macro AUROC over each panel&rsquo;s genes: attention-MIL with one output per gene, 10 patient-disjoint folds on slides the student never saw in distillation, 83 for LUAD and 291 pan-cancer. Unsequenced cases are masked rather than counted as wild type. Only the LUAD panel lines up with the paper, whose value there is the mean of its five per-gene AUROCs on TCGA; its pan-cancer values come from the private Providence cohort, with an 18th target that is PD-L1 expression rather than a mutation and a different definition of high TMB.</caption>
+  <caption><b>Table 16.</b> TCGA-LUAD overall survival with the histology-only PORPOISE model: Harrell&rsquo;s c-index on 444 of the paper&rsquo;s 453 patients, 157 of whom died, over its five released folds with five head seeds each. The fold mean carries its standard error; the pooled value is one out-of-fold c-index with a 1,000-replicate patient bootstrap interval. Nine patients are missing because their slides lack the resolution metadata needed to tile them. The published value is the paper&rsquo;s attention-MIL on ResNet-50 features over its full cohort; our ResNet-50 row runs the same extractor through our pipeline. The student trained on slides from 443 of the 444 patients.</caption>
   <thead>
-    <tr><th>Encoder</th><th>LUAD, 5 genes</th><th>Pan-cancer, 5 genes</th><th>Pan-cancer, 17 genes</th><th>TMB-high</th></tr>
+    <tr><th>Encoder</th><th>Fold mean</th><th>Pooled</th></tr>
   </thead>
   <tbody>
-    <tr class="ref"><td>Prov-GigaPath, published</td><td>0.655</td><td><b>0.700</b></td><td>0.649</td><td>0.708</td></tr>
-    <tr><td>Prov-GigaPath, our run</td><td>0.6422</td><td>0.6742</td><td>0.7092</td><td>0.8189</td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td><b>0.6888</b></td><td>0.6867</td><td>0.7194</td><td><b>0.8250</b></td></tr>
-    <tr><td>H0-mini, our run</td><td>0.6224</td><td>0.6815</td><td><b>0.7238</b></td><td>0.8032</td></tr>
+    <tr class="ref"><td>ResNet-50, published</td><td>0.548 <span class="ci">[0.489, 0.597]</span></td><td>&mdash;</td></tr>
+    <tr><td>ResNet-50, our run</td><td>0.574 <span class="ci">&plusmn;0.023</span></td><td>0.561 <span class="ci">[0.509, 0.617]</span></td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td><b>0.582</b> <span class="ci">&plusmn;0.022</span></td><td><b>0.575</b> <span class="ci">[0.522, 0.624]</span></td></tr>
   </tbody>
 </table>
 </figure>
 </details>
 
 <details>
-<summary>Survival: the PORPOISE reproduction <span class="tag">Table 15</span></summary>
-<figure class="fig" id="tab-surv">
+<summary>Prov-GigaPath&rsquo;s tasks on TCGA <span class="tag">Table 17</span></summary>
+<figure class="fig wide" id="tab-tcga">
 <table class="booktabs compact nums">
-  <caption><b>Table 15.</b> TCGA-LUAD overall survival with the histology-only PORPOISE model: Harrell&rsquo;s c-index, mean over the five released folds, on the 82 patients, 34 of whom died, that the student never saw in distillation. The published PORPOISE value, 0.548 on Chen et&nbsp;al.&rsquo;s full 453-patient cohort, and the ResNet-50 anchor, 0.569 on all 411 cached patients, come from other cohorts and are left out. Some of these 82 patients may be in H0-mini&rsquo;s TCGA training set.</caption>
+  <caption><b>Table 17.</b> Prov-GigaPath&rsquo;s tasks rebuilt on TCGA, over all 1,503 labeled slides, 1,438 of which the student trained on: macro AUROC over 10 patient-disjoint folds. Classification is attention-MIL over tissue of origin and five of the paper&rsquo;s subtyping tasks, with breast ductal-against-lobular subtyping shown on its own; mutations are the mean over the paper&rsquo;s four panels; tile probes are linear probes on tile features, pooled to slides, over six tasks. The teacher never saw these slides, so the rows describe the two representations rather than compare how they generalize, and the paper&rsquo;s own numbers, from its LongNet slide encoder on other cohorts and splits, are not comparable.</caption>
   <thead>
-    <tr><th>Encoder</th><th>c-index, 82 patients</th></tr>
+    <tr><th>Encoder</th><th>Classification, 6 tasks</th><th>BRCA subtype</th><th>Mutations, 4 panels</th><th>Tile probes</th></tr>
   </thead>
   <tbody>
-    <tr><td>Prov-GigaPath, our run</td><td><b>0.637</b></td></tr>
-    <tr class="ours"><td>Origin v6 (live, no neck)</td><td>0.612</td></tr>
-    <tr><td>H0-mini, our run</td><td>0.591</td></tr>
+    <tr><td>Prov-GigaPath, our run</td><td><b>0.923</b></td><td><b>0.965</b></td><td><b>0.753</b></td><td>0.905</td></tr>
+    <tr class="ours"><td>NanoPath (live, no neck)</td><td>0.922</td><td>0.932</td><td>0.746</td><td><b>0.914</b></td></tr>
   </tbody>
 </table>
 </figure>
@@ -1134,7 +1166,7 @@ window.MathJax = {
 
 <h3 id="compact">Two other compact encoders</h3>
 
-<p>H0-mini and GigaPath-Flash both distill a billion-parameter pathology encoder into a small ViT, which makes them the natural comparisons for ours. H0-mini (Filiot et&nbsp;al., 2025) is the strongest compact encoder we have measured on HEST: at 0.3957 it is above GigaPath itself. Its teacher is also stronger there, though. H-optimus-0 scores 0.4150 on the same leaderboard, so H0-mini keeps 95.3% of its teacher where our student keeps 99.3% of its own; under its paper&rsquo;s own protocol, class token concatenated with mean patch features, the figure is 95.7%, 0.404 against 0.422. The two students were also not given the same budget: H0-mini saw about 215 million tile views, roughly five passes over 43 million tiles, where ours saw 61 million once. On eva the two split the tasks: H0-mini leads on BACH, CRC and Gleason, our student on BreakHis by 0.075, and they tie on PatchCamelyon. H0-mini is ahead on PLISM, 0.541 against 0.519, and behind on three of the four mutation panels and on survival.</p>
+<p>H0-mini and GigaPath-Flash both distill a billion-parameter pathology encoder into a small ViT, which makes them the natural comparisons for ours. H0-mini (Filiot et&nbsp;al., 2025) is the strongest compact encoder we have measured on HEST: at 0.3957 it is above GigaPath itself. Its teacher is also stronger there, though. H-optimus-0 scores 0.4150 on the same leaderboard, so H0-mini keeps 95.3% of its teacher where our student keeps 98.6% of its own; under its paper&rsquo;s own protocol, class token concatenated with mean patch features, the figure is 95.7%, 0.404 against 0.422. The two students train on the same 6,093 TCGA slides, so what separates them is the teacher and the budget: H0-mini saw about 215 million tile views, roughly five passes over 43 million tiles, where ours saw 78.9 million once, about 2.7 times fewer. On eva the two split the tasks: H0-mini leads on BACH, CRC and Gleason, and our student on BreakHis, 0.788 against 0.753, and narrowly on PatchCamelyon, 0.946 against 0.942. H0-mini is ahead on PLISM, 0.541 against 0.520 at the same input size.</p>
 
 <p>GigaPath-Flash (Usuyama et&nbsp;al., 2026) is the closer relative: the same GigaPath ViT-g teacher, distilled with the DINOv2 objective into a 22M-parameter ViT-S/16 on Providence slides, then given its own 21M-parameter LongNet slide encoder. Its authors report it only through that slide encoder, on their own splits of PANDA prostate grading and EBRAINS brain tumor subtyping, neither of which we have run, so none of its numbers can be set against ours. What does carry over is the ratio: GigaPath-Flash keeps 96.8% of its teacher&rsquo;s average score on those two tasks at a fiftieth of the compute per slide. Its tile encoder is released as open weights under Apache 2.0, so nothing but time stands between us and running it through HEST, eva and PLISM; it is the comparison we most want to see.</p>
 </section>
@@ -1147,7 +1179,7 @@ window.MathJax = {
 
 <figure class="fig">
 <table class="booktabs">
-  <caption><b>Table 16.</b> Every place the recipe diverges from its sources, and what the divergence was forced by.</caption>
+  <caption><b>Table 18.</b> Every place the recipe diverges from its sources, and what the divergence was forced by.</caption>
   <thead>
     <tr><th>Component</th><th>Published recipe</th><th>Our pathology ViT</th></tr>
   </thead>
@@ -1172,18 +1204,18 @@ window.MathJax = {
 <section id="outlook">
 <h2>What remains open</h2>
 
-<p>We have a pathology encoder with 9.1% of the teacher&rsquo;s parameters that keeps its input geometry, keeps 99.3% of the teacher&rsquo;s HEST score, matches its BreakHis accuracy, and is steadier than the teacher across scanners and stains. For a model that runs once per tile across thousands of slides, that is the difference between feature extraction dominating the pipeline and disappearing into it.</p>
+<p>We have a pathology encoder with 9.1% of the teacher&rsquo;s parameters that keeps its input geometry, keeps 98.6% of the teacher&rsquo;s HEST score, matches its published average on eva&rsquo;s classification tasks, and is steadier than the teacher across scanners and stains. For a model that runs once per tile across thousands of slides, that is the difference between feature extraction dominating the pipeline and disappearing into it. What it gives up is concentrated: 0.039 on BreakHis against the published score, and 0.039 against our teacher run on MoNuSAC nucleus segmentation, the one benchmark here that reads the patch tokens rather than the class token.</p>
 
-<p>What this post cannot yet say is how much of that came from pruning. One epoch takes the student from 0.236 to 0.385 on HEST, starting from weights that on their own make a poor encoder, but this run has no twin of the same architecture trained from random weights under the same recipe to set that recovery against. The one such comparison we have, on a fiftieth of the slides with the previous student, found that the inherited weights bought a large early lead and no final advantage (<a href="#recovery">Recovery</a>). Both halves are worth taking seriously &mdash; the early lead is why we would run this recipe again, and the missing comparison at this scale is why we are careful about what we credit it to.</p>
+<p>What this post cannot yet say is how much of that came from pruning. A tenth of an epoch takes the student from 0.236 to 0.393 on HEST, starting from weights that on their own make a poor encoder, but this run has no twin of the same architecture trained from random weights under the same recipe to set that recovery against. Until that twin exists, the fast repair says what the recipe does, not what the inherited weights contributed (<a href="#recovery">Recovery</a>).</p>
 
 <p>The comparison we most want next is GigaPath-Flash&rsquo;s tile encoder on the same three tile benchmarks. It is a 22M-parameter student of the same teacher, distilled into a standard ViT-S rather than cut out of it; its weights are public, and nothing published yet puts the two approaches side by side. The other experiments are already obvious.</p>
 
 <ol class="limits">
-  <li><b>A random-initialized control at this scale.</b> This student has no twin trained from random weights under the same recipe, so its results say what the recipe reaches on 4,640 slides, not how much of that the pruned weights contributed. The v4 controls settled the question at 104 slides in the random start&rsquo;s favor by the end of training; the matching control for this run is configured and is the first thing to train.</li>
-  <li><b>Multiple seeds.</b> Every number above comes from one training run, which is enough to see HEST climb from 0.236 to 0.385 over the epoch and not enough to separate encoders whose scores differ by a few thousandths.</li>
-  <li><b>Larger held-out slide cohorts.</b> Keeping to slides the student never saw leaves 18 to 97 slides per subtyping task and 82 patients for survival, too few to rank encoders on those tasks.</li>
+  <li><b>A random-initialized control at this scale.</b> This student has no twin trained from random weights under the same recipe, so its results say what the recipe reaches on 6,093 slides, not how much of that the pruned weights contributed. That control has not been trained, and it is the first thing to run.</li>
+  <li><b>Multiple seeds.</b> Every number above comes from one training run, which is enough to see HEST climb from 0.236 to 0.393 within a tenth of the epoch and not enough to separate encoders whose scores differ by a few thousandths.</li>
+  <li><b>Slide-level cohorts the student has not seen.</b> With nothing held out of distillation, GTEx is the only slide-level benchmark here without training overlap, and its findings rest on test folds of 24 to 26 slides. A larger non-TCGA cohort with clinical labels would let slide-level results do more than describe.</li>
   <li><b>An ablation of the hidden-state losses.</b> \(\mathcal{L}_{\mathrm{IS}}\) and \(\mathcal{L}_{\mathrm{emb}}\) are the only terms that reach inside the network, so they are the most likely route by which the inherited weights would speed up training &mdash; and the easiest to test by removing. The pruning map also reaches the prototype losses through the neck, which starts from its channel map, so a clean version of this ablation initializes the neck randomly as well.</li>
-  <li><b>Scores for every checkpoint, and a separate validation source to choose among them.</b> <a href="#fig-recovery">Figure 10</a> has only its two ends so far, and we report the end of the epoch because the schedule ends there, not because anything chose it.</li>
+  <li><b>A separate validation source to choose a checkpoint.</b> Every checkpoint is scored (<a href="#fig-recovery">Figure 10</a>), and some beat the last on HEST, PLISM and eva; without data held out for the purpose, we report the end of the epoch rather than pick one by the benchmarks it would then be judged on.</li>
   <li><b>A two-step cut measured against this one-shot baseline.</b> For its most aggressive reduction, Minitron found that pruning to an intermediate model first beat a single cut, and ours is more aggressive still; we have the baseline to test that against now.</li>
 </ol>
 </section>
