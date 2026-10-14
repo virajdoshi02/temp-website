@@ -45,7 +45,7 @@ window.MathJax = {
   <div class="masthead-inner">
     <a class="venue" href="../">Origin &middot; Research</a>
     <span class="masthead-right">
-      <span class="meta">24 September 2026 &middot; updated 11 October</span>
+      <span class="meta">24 September 2026 &middot; updated 13 October</span>
       <button id="expandAll" class="expand-btn" aria-expanded="false">Expand all detail</button>
     </span>
   </div>
@@ -123,7 +123,7 @@ window.MathJax = {
   <li><b>A 1.13-billion-parameter tile encoder becomes a 103.6-million-parameter one, and stays a dense ViT.</b> Nothing is masked and nothing is zeroed. We rank residual channels, attention heads, SwiGLU neurons and whole blocks by their activations on real H&amp;E tissue, search 861 shapes between 85M and 105M parameters for the best one, and slice it straight out of the teacher&rsquo;s weights, a 10.95&times; compression.</li>
   <li><b>The cut on its own is not a working encoder.</b> Before a single gradient step, the sliced network predicts gene expression on HEST at a mean Pearson correlation of 0.236, where the teacher reaches 0.387. Asked to find the same tissue scanned on another machine, it puts the match among its ten nearest neighbors 0.2% of the time, against the teacher&rsquo;s 57%.</li>
   <li><b>Distillation repairs it with four losses at once.</b> Prototype cross-entropy on the CLS token and on all 196 patch tokens, plus cosine matching on five hidden states and on the tensor entering the first block. One epoch covers 78.9 million tiles from 6,093 TCGA slides in 77,085 optimizer steps: 99 wall-clock hours on eight A100 GPUs, or about 790 GPU-hours.</li>
-  <li><b>On published benchmarks NanoPath keeps nearly all of its teacher.</b> It scores 0.382 against 0.387 on HEST, 98.6% of the teacher. On eva&rsquo;s classification tasks it matches the teacher&rsquo;s published scores, 0.852 for both averaged over the five leaderboard tasks we could run, though it trails by 0.039 on BreakHis and by 0.036 on MoNuSAC nucleus segmentation. On PLISM it scores 0.520 against 0.319, retrieving the same tissue across scanners and stains far more reliably than its teacher; the teacher&rsquo;s 0.333 on PLISM&rsquo;s leaderboard predates the benchmark&rsquo;s current code and was never updated. On GTEx, the one slide-level benchmark that shares no slides with its training set, it is within 0.011 of the teacher under each of four heads. H0-mini, an 86M-parameter student of a stronger teacher, trained on the same slides with about 2.7 times as many tile views, scores higher on HEST at 0.396 but keeps a smaller share of its teacher, 95%.</li>
+  <li><b>On published benchmarks NanoPath keeps nearly all of its teacher.</b> It scores 0.382 against 0.387 on HEST, 98.6% of the teacher. On eva&rsquo;s classification tasks it matches the teacher&rsquo;s published scores, 0.852 for both averaged over the five leaderboard tasks we could run, though it trails by 0.039 on BreakHis and by 0.036 on MoNuSAC nucleus segmentation. On PLISM it scores 0.520 against 0.319, retrieving the same tissue across scanners and stains far more reliably than its teacher; the teacher&rsquo;s 0.333 on PLISM&rsquo;s leaderboard predates the benchmark&rsquo;s current code and was never updated. On GTEx, the one slide-level benchmark that shares no slides with its training set, it is within 0.011 of the teacher under each of four heads. H0-mini, an 86M-parameter student of a stronger teacher, trained on the same slides for about 2.7 times as many tiles seen, scores higher on HEST at 0.396 but keeps a smaller share of its teacher, 95%.</li>
   <li><b>Almost all of the repair happens in the first tenth of the epoch.</b> By then NanoPath scores 0.393 on HEST, above its teacher, and from there it drifts down to 0.382 while a TCGA tissue probe keeps climbing. The training loss cannot show this, because its targets move with the student. How much of the fast repair the inherited weights deserve is still open, because there is no twin of the same shape trained from random weights under the same recipe (<a href="#recovery">When the repair happens</a>).</li>
 </ol>
 </section>
@@ -206,7 +206,6 @@ window.MathJax = {
           </g>
           <g font-size="11" fill="#7a2d24">
             <text x="59" y="165">0.236</text>
-            <text x="82" y="31">0.393</text>
             <text x="282" y="58" text-anchor="end">0.382</text>
           </g>
           <text x="282" y="33" font-size="11" font-weight="600" fill="#2b4257" text-anchor="end">teacher 0.387</text>
@@ -214,7 +213,7 @@ window.MathJax = {
       </svg>
       <svg viewBox="310 0 310 232" role="img" aria-label="PLISM score of the student's live weights at 256-pixel input, at step zero and at every tenth of the epoch: 0.236 at step zero, almost all of it the collapsed cosine-similarity term rather than retrieval; 0.555 after the first tenth, near 0.55 until seven tenths of the way through with a peak of 0.558, and 0.520 at the end, against the teacher's 0.319.">
         <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-          <text x="362" y="16" font-size="11.5" font-weight="600" fill="#33363c">PLISM score, 256 px</text>
+          <text x="362" y="16" font-size="11.5" font-weight="600" fill="#33363c">PLISM score</text>
           <g stroke="#ebe8e2" stroke-width="1">
             <line x1="362" y1="30" x2="592" y2="30" />
             <line x1="362" y1="70" x2="592" y2="70" />
@@ -252,7 +251,6 @@ window.MathJax = {
           </g>
           <g font-size="11" fill="#7a2d24">
             <text x="369" y="180">0.236</text>
-            <text x="454" y="39" text-anchor="middle">0.558</text>
             <text x="592" y="79" text-anchor="end">0.520</text>
           </g>
           <text x="592" y="136" font-size="11" font-weight="600" fill="#2b4257" text-anchor="end">teacher 0.319</text>
@@ -296,7 +294,7 @@ window.MathJax = {
 
 <p>To put NanoPath in context, the natural comparisons are H0-mini and GigaPath-Flash, which both distill a billion-parameter pathology encoder into a standard small ViT. NanoPath is instead cut out of its teacher, so its shape and its starting weights both come from the model it imitates.</p>
 
-<p>H0-mini (Filiot et&nbsp;al., 2025) is the strongest compact encoder we have measured on HEST: at 0.3957 it is above GigaPath itself. Its teacher is also stronger there, though. H-optimus-0 scores 0.4150 on the same leaderboard, so H0-mini keeps 95.3% of its teacher where NanoPath keeps 98.6% of its own; under H0-mini&rsquo;s own protocol, the class token concatenated with the mean patch feature, the figure is 95.7%, 0.404 against 0.422. The two students train on the same 6,093 TCGA slides, so what separates them is the teacher and the budget: H0-mini saw about 215 million tile views, roughly five passes over 43 million tiles, where NanoPath saw 78.9 million once, about 2.7 times fewer. On eva the two split the tasks: H0-mini leads on BACH, CRC and Gleason, and NanoPath on BreakHis and, narrowly, PatchCamelyon (<a href="#tab-eva">Table 4</a>). H0-mini is also ahead on PLISM, 0.541 against 0.520, and still ahead, 0.541 against 0.530, when NanoPath sees PLISM&rsquo;s tiles unresized as H0-mini does.</p>
+<p>H0-mini (Filiot et&nbsp;al., 2025) is the strongest compact encoder we have measured on HEST: at 0.3957 it is above GigaPath itself. Its teacher is also stronger there, though. H-optimus-0 scores 0.4150 on the same leaderboard, so H0-mini keeps 95.3% of its teacher where NanoPath keeps 98.6% of its own; under H0-mini&rsquo;s own protocol, the class token concatenated with the mean patch feature, the figure is 95.7%, 0.404 against 0.422. The two students train on the same 6,093 TCGA slides, so what separates them is the teacher and the budget: H0-mini saw about 215 million tiles, roughly five passes over 43 million, where NanoPath saw 78.9 million once, about 2.7 times fewer. On eva the two split the tasks: H0-mini leads on BACH, CRC and Gleason, and NanoPath on BreakHis and, narrowly, PatchCamelyon (<a href="#tab-eva">Table 4</a>). H0-mini is also ahead on PLISM, 0.541 against 0.520, and still ahead, 0.541 against 0.530, when NanoPath sees PLISM&rsquo;s tiles unresized as H0-mini does.</p>
 
 <p>GigaPath-Flash (Usuyama et&nbsp;al., 2026) is the closer relative: the same GigaPath ViT-g teacher, distilled with the DINOv2 recipe, minus its KoLeo regularizer, into a 22M-parameter ViT-S/16 on Providence slides, then given its own 21M-parameter LongNet slide encoder (Ding et&nbsp;al., 2023). Its authors report it only through that slide encoder, on their own splits of PANDA prostate grading (Bulten et&nbsp;al., 2022) and EBRAINS brain tumor subtyping (Roetzer-Pejrimovsky et&nbsp;al., 2022), neither of which we have run, so none of its numbers can be set against ours. What does carry over is the ratio: GigaPath-Flash keeps 96.8% of its teacher&rsquo;s average score on those two tasks at a fiftieth of the compute per slide. Its tile encoder is released as open weights under Apache 2.0, so nothing but time stands between us and running it through HEST, eva and PLISM.</p>
 </section>
@@ -310,29 +308,29 @@ window.MathJax = {
 <figure class="fig wide" id="fig-pipeline">
   <div class="pipe">
     <div class="pipe-stage">
-      <span class="pipe-tag">Pruning <em>&middot; one shot, about 5&frac12; wall-clock hours and 44 GPU-hours, nearly all of it the search</em></span>
+      <span class="pipe-tag">Pruning</span>
       <div class="pipe-row">
-        <div class="node frozen"><b>Prov-GigaPath ViT-g/16</b><small>1,134,953,984 parameters, frozen</small></div>
+        <div class="node frozen"><b>Prov-GigaPath</b><small>1.13B, frozen</small></div>
         <i>&rarr;</i>
-        <div class="node"><b>Score importance</b><small>4,096 calibration tiles; channels, heads, neurons, blocks</small></div>
+        <div class="node"><b>Score importance</b></div>
         <i>&rarr;</i>
-        <div class="node"><b>Search shapes</b><small>861 shapes at 85&ndash;105M, ranked by held-out CKA</small></div>
+        <div class="node"><b>Search shapes</b></div>
         <i>&rarr;</i>
-        <div class="node train"><b>Slice the teacher</b><small>640 wide, 33 blocks, 10 heads, 768 neurons</small></div>
+        <div class="node train"><b>Slice the teacher</b></div>
       </div>
     </div>
     <div class="pipe-stage">
-      <span class="pipe-tag">Distillation <em>&middot; one epoch, 99 wall-clock hours on eight A100s, about 790 GPU-hours</em></span>
+      <span class="pipe-tag">Distillation</span>
       <div class="pipe-row">
-        <div class="node train"><b>Pruned initialization</b><small>the sliced weights</small></div>
+        <div class="node train"><b>Sliced student</b></div>
         <i>&rarr;</i>
-        <div class="node"><b>DINO + iBOT + hidden states</b><small>77,085 steps against the frozen teacher</small></div>
+        <div class="node"><b>Distill from the teacher</b></div>
         <i>&rarr;</i>
-        <div class="node out"><b>NanoPath</b><small>103,630,848 parameters, 10.95&times; smaller than the teacher</small></div>
+        <div class="node out"><b>NanoPath</b><small>103.6M</small></div>
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 2.</b> The whole procedure and what each stage costs. The search is the only part of pruning that trains anything, and it throws those weights away, so every weight NanoPath starts from is copied from the teacher.</figcaption>
+  <figcaption><b>Figure 2.</b> The whole procedure. The search is the only part of pruning that trains anything, and it throws those weights away, so every weight NanoPath starts from is copied from the teacher.</figcaption>
 </figure>
 
 <p>The teacher is a ViT-g/16, the giant vision transformer configuration of DINOv2 with 16-pixel patches (Dosovitskiy et&nbsp;al., 2021; Oquab et&nbsp;al., 2024): 1,134,953,984 parameters in 40 transformer blocks on a residual stream 1,536 channels wide, with 24 attention heads of 64 dimensions each and 4,096 neurons in every SwiGLU branch (Shazeer, 2020). A 224&times;224 crop becomes 196 patch tokens plus a CLS token. Prov-GigaPath pretrained it on 1,384,860,229 tiles from 171,189 slides, H&amp;E and immunohistochemistry together, a count its abstract rounds to 1.3 billion (Xu et&nbsp;al., 2024). The public checkpoint is the tile encoder alone; its LongNet slide aggregator is a separate model that we leave untouched.</p>
@@ -353,25 +351,21 @@ window.MathJax = {
         <span class="axis-name">Residual channels</span>
         <span class="axis-count">1,536 &rarr; <b>640</b></span>
         <span class="axis-track"><span class="axis-fill" style="width:41.7%"></span></span>
-        <span class="axis-note"><b>41.7% kept.</b> One ranking for the whole trunk, so a surviving channel survives in every block at once.</span>
       </div>
       <div class="axis">
         <span class="axis-name">Attention heads</span>
         <span class="axis-count">24 &rarr; <b>10</b> per block</span>
         <span class="axis-track"><span class="axis-fill" style="width:41.7%"></span></span>
-        <span class="axis-note"><b>41.7% kept.</b> Ranked inside each block and copied whole, so head width stays at 64; the count is pinned to width&nbsp;/&nbsp;64.</span>
       </div>
       <div class="axis">
         <span class="axis-name">SwiGLU neurons</span>
         <span class="axis-count">4,096 &rarr; <b>768</b> per block</span>
         <span class="axis-track"><span class="axis-fill" style="width:18.75%"></span></span>
-        <span class="axis-note"><b>18.75% kept.</b> Ranked inside each block, with the gate and value rows of a neuron kept or dropped as a pair.</span>
       </div>
       <div class="axis">
         <span class="axis-name">Transformer blocks</span>
         <span class="axis-count">40 &rarr; <b>33</b></span>
         <span class="axis-track"><span class="axis-fill" style="width:82.5%"></span></span>
-        <span class="axis-note"><b>82.5% kept.</b> Ranked across the network by how far a block rotates its own input.</span>
       </div>
     </div>
   </div>
@@ -409,15 +403,13 @@ window.MathJax = {
         <rect x="10" y="50" width="200" height="28" fill="#f2f5f8" stroke="#cfd9e2"></rect>
         <text x="110" y="68" font-size="9.5" font-weight="600" fill="#16171a" text-anchor="middle">LayerNorm</text>
         <rect x="10" y="96" width="200" height="38" fill="#f2f5f8" stroke="#cfd9e2"></rect>
-        <text x="110" y="112" font-size="9.5" font-weight="600" fill="#16171a" text-anchor="middle">Attention</text>
-        <text x="110" y="125" font-size="8" fill="#6d7178" text-anchor="middle">24 heads &#215; 64, then output projection</text>
+        <text x="110" y="118.5" font-size="9.5" font-weight="600" fill="#16171a" text-anchor="middle">Attention</text>
         <circle cx="110" cy="164" r="12" fill="#ffffff" stroke="#6b8299"></circle>
         <text x="110" y="168" font-size="12" fill="#2b4257" text-anchor="middle">+</text>
         <rect x="10" y="194" width="200" height="28" fill="#f2f5f8" stroke="#cfd9e2"></rect>
         <text x="110" y="212" font-size="9.5" font-weight="600" fill="#16171a" text-anchor="middle">LayerNorm</text>
         <rect x="10" y="240" width="200" height="38" fill="#f2f5f8" stroke="#cfd9e2"></rect>
-        <text x="110" y="256" font-size="9.5" font-weight="600" fill="#16171a" text-anchor="middle">SwiGLU</text>
-        <text x="110" y="269" font-size="8" fill="#6d7178" text-anchor="middle">4,096 neurons, then second projection</text>
+        <text x="110" y="262.5" font-size="9.5" font-weight="600" fill="#16171a" text-anchor="middle">SwiGLU</text>
         <circle cx="110" cy="308" r="12" fill="#ffffff" stroke="#6b8299"></circle>
         <text x="110" y="312" font-size="12" fill="#2b4257" text-anchor="middle">+</text>
         <rect x="10" y="338" width="200" height="28" fill="#ffffff" stroke="#d8d5ce"></rect>
@@ -441,10 +433,10 @@ window.MathJax = {
       </g>
     </svg>
     <div class="legend">
-      <div><span class="num">1</span><p><b>Residual channels.</b> Both LayerNorm outputs, summed over both sites and all 40 blocks, giving one global ranking of 1,536 channels.</p></div>
-      <div><span class="num">2</span><p><b>Attention heads.</b> The L2 norm of each 64-dimensional head slice of the attention output, ranked within each block.</p></div>
-      <div><span class="num">3</span><p><b>SwiGLU neurons.</b> The activations entering the second projection, ranked within each block across 4,096 neurons.</p></div>
-      <div><span class="num">4</span><p><b>Whole blocks.</b> How far the block rotates its own input, comparing the two ends of the residual path.</p></div>
+      <div><span class="num">1</span><p><b>Residual channels.</b> LayerNorm outputs, ranked once for the whole trunk.</p></div>
+      <div><span class="num">2</span><p><b>Attention heads.</b> Each head&rsquo;s output, ranked within its block.</p></div>
+      <div><span class="num">3</span><p><b>SwiGLU neurons.</b> Activations entering the second projection, ranked within each block.</p></div>
+      <div><span class="num">4</span><p><b>Whole blocks.</b> How far the block rotates its input.</p></div>
     </div>
   </div>
   <figcaption><b>Figure 4.</b> Where the four families of hooks attach, drawn on one transformer block. Three of them score width and the fourth scores depth. Dashed lines are the residual connections, which is why the channel ranking has to be global: channel 900 has to mean the same thing in block 3 and block 37.</figcaption>
@@ -540,13 +532,13 @@ window.MathJax = {
   <div class="panel">
     <div class="bars">
       <div class="bars-group">
-        <div class="bars-name">HEST, mean Pearson <i>r</i> <span>&middot; nine gene-expression tasks</span></div>
+        <div class="bars-name">HEST, mean Pearson <i>r</i></div>
         <div class="bar-row"><span class="bar-label">Teacher</span><span class="bar-track"><span class="bar-fill teacher" style="width:38.7%"></span></span><span class="bar-val">0.387</span></div>
         <div class="bar-row"><span class="bar-label">Step zero</span><span class="bar-track"><span class="bar-fill init" style="width:23.6%"></span></span><span class="bar-val">0.236</span></div>
         <div class="bar-row"><span class="bar-label">One epoch</span><span class="bar-track"><span class="bar-fill pruned" style="width:38.2%"></span></span><span class="bar-val">0.382</span></div>
       </div>
       <div class="bars-group">
-        <div class="bars-name">PLISM, top-10 retrieval across scanners <span>&middot; 273 scanner pairs</span></div>
+        <div class="bars-name">PLISM, top-10 retrieval across scanners</div>
         <div class="bar-row"><span class="bar-label">Teacher</span><span class="bar-track"><span class="bar-fill teacher" style="width:56.6%"></span></span><span class="bar-val">0.566</span></div>
         <div class="bar-row"><span class="bar-label">Step zero</span><span class="bar-track"><span class="bar-fill init" style="width:0.2%"></span></span><span class="bar-val">0.002</span></div>
         <div class="bar-row"><span class="bar-label">One epoch</span><span class="bar-track"><span class="bar-fill pruned" style="width:90.9%"></span></span><span class="bar-val">0.909</span></div>
@@ -568,30 +560,29 @@ window.MathJax = {
 <figure class="fig" id="fig-losses">
   <div class="pipe">
     <div class="pipe-stage">
-      <span class="pipe-tag">One tile, two views</span>
+      <span class="pipe-tag">One tile, two augmented views</span>
       <div class="pipe-row">
-        <div class="node"><b>H&amp;E tile</b><small>224 px</small></div>
+        <div class="node"><b>H&amp;E tile</b></div>
         <i>&rarr;</i>
-        <div class="node"><b>View 1</b><small>crop, flip, color and HED jitter, blur</small></div>
-        <div class="node"><b>View 2</b><small>same family, independent draw</small></div>
+        <div class="node"><b>View 1</b></div>
+        <div class="node"><b>View 2</b></div>
       </div>
     </div>
     <div class="pipe-stage">
       <span class="pipe-tag">Both views through both models</span>
       <div class="pipe-row">
-        <div class="node frozen"><b>Frozen teacher</b><small>GigaPath ViT-g, 1,536 wide</small></div>
-        <div class="node train"><b>Student</b><small>103.6M, 640 wide, trainable</small></div>
+        <div class="node frozen"><b>Teacher</b><small>frozen</small></div>
+        <div class="node train"><b>Student</b><small>trained</small></div>
       </div>
     </div>
     <div class="pipe-stage">
-      <span class="pipe-tag">Four comparisons <em>&middot; two on what the models say, two on what they compute</em></span>
+      <span class="pipe-tag">Four losses</span>
       <div class="pipe-row">
-        <div class="node"><b>\(\mathcal{L}_{\mathrm{DINO}}\)</b><small>CLS prototypes, across views</small></div>
-        <div class="node"><b>\(\mathcal{L}_{\mathrm{iBOT}}\)</b><small>196 patch prototypes, within a view</small></div>
-        <div class="node"><b>\(\mathcal{L}_{\mathrm{IS}}\)</b><small>five hidden states</small></div>
-        <div class="node"><b>\(\mathcal{L}_{\mathrm{emb}}\)</b><small>the tensor entering block 0</small></div>
+        <div class="node"><b>\(\mathcal{L}_{\mathrm{DINO}}\)</b><small>CLS token</small></div>
+        <div class="node"><b>\(\mathcal{L}_{\mathrm{iBOT}}\)</b><small>patch tokens</small></div>
+        <div class="node"><b>\(\mathcal{L}_{\mathrm{IS}}\)</b><small>hidden states</small></div>
+        <div class="node"><b>\(\mathcal{L}_{\mathrm{emb}}\)</b><small>input embedding</small></div>
       </div>
-      <p class="pipe-note">The last two are summed and scaled by \(\alpha\) before they join the first two.</p>
     </div>
   </div>
   <figcaption><b>Figure 7.</b> Two augmented views of every tile go through both models, and four losses read off the result. The teacher is frozen throughout; only the student and its projection heads are trained.</figcaption>
@@ -607,48 +598,46 @@ window.MathJax = {
 
 <p>Saying that two of the terms compare probability distributions raises an obvious question, because nothing inside a ViT produces one. A transformer emits vectors. The distributions are manufactured, and seeing how is most of what it takes to read the first two terms.</p>
 
-<p>Each model&rsquo;s features go through a <em>projection head</em>: a three-layer MLP that squeezes the feature down to a few hundred dimensions and normalizes it onto the unit sphere, followed by a single bias-free layer holding 131,072 unit vectors of its own. Those vectors are the <b>prototypes</b>. Because both sides are unit length, each output of that layer is a cosine similarity, and a softmax over all of them turns one feature vector into a distribution: a soft assignment of the tile across a learned vocabulary of 131,072 visual patterns (<a href="#fig-proto">Figure 8</a>).</p>
+<p>Each model&rsquo;s features go through a <em>projection head</em>: a three-layer MLP that squeezes the feature down to a few hundred dimensions and normalizes it onto the unit sphere, followed by a single bias-free layer holding 131,072 vectors of its own, each a unit direction times a learned length that starts at one. Those vectors are the <b>prototypes</b>. Because the feature is unit length, each output of that layer is a cosine similarity scaled by that prototype&rsquo;s length, and a softmax over all of them turns one feature vector into a distribution: a soft assignment of the tile across a learned vocabulary of 131,072 visual patterns (<a href="#fig-proto">Figure 8</a>).</p>
 
 <figure class="fig" id="fig-proto">
   <div class="panel">
     <div class="pipe-row">
-      <div class="node"><b>one token</b><small>1,536-d feature</small></div>
+      <div class="node"><b>One token</b></div>
       <i>&rarr;</i>
-      <div class="node"><b>3-layer MLP</b><small>down to 384-d</small></div>
+      <div class="node"><b>MLP</b></div>
       <i>&rarr;</i>
-      <div class="node"><b>L2 normalize</b><small>onto the unit sphere</small></div>
+      <div class="node"><b>L2 normalize</b></div>
       <i>&rarr;</i>
-      <div class="node"><b>cosine against</b><small>131,072 prototypes</small></div>
+      <div class="node"><b>Score prototypes</b><small>scaled cosine</small></div>
       <i>&rarr;</i>
-      <div class="node out"><b>softmax</b><small>a distribution</small></div>
+      <div class="node out"><b>Softmax</b><small>a distribution</small></div>
     </div>
     <hr class="panel-rule">
     <div class="chart-pair">
-    <svg viewBox="0 0 280 172" role="img" aria-label="The teacher's distribution over 20 of the prototypes: nearly all of its mass on one">
+    <svg viewBox="0 0 280 158" role="img" aria-label="The teacher's distribution over 20 of the prototypes: nearly all of its mass on one">
       <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-        <text x="18" y="16" font-size="11.5" font-weight="600" fill="#2b4257">Teacher &middot; centered, &#964; = 0.04</text>
+        <text x="18" y="16" font-size="11.5" font-weight="600" fill="#2b4257">Teacher</text>
         <g fill="#6b8299">
           <rect x="18" y="127" width="8" height="3" /><rect x="30" y="128" width="8" height="2" /><rect x="42" y="126" width="8" height="4" /><rect x="54" y="128" width="8" height="2" /><rect x="66" y="127" width="8" height="3" /><rect x="78" y="38" width="8" height="92" /><rect x="90" y="124" width="8" height="6" /><rect x="102" y="127" width="8" height="3" /><rect x="114" y="128" width="8" height="2" /><rect x="126" y="125" width="8" height="5" /><rect x="138" y="127" width="8" height="3" /><rect x="150" y="128" width="8" height="2" /><rect x="162" y="126" width="8" height="4" /><rect x="174" y="127" width="8" height="3" /><rect x="186" y="128" width="8" height="2" /><rect x="198" y="124" width="8" height="6" /><rect x="210" y="127" width="8" height="3" /><rect x="222" y="128" width="8" height="2" /><rect x="234" y="127" width="8" height="3" /><rect x="246" y="128" width="8" height="2" />
         </g>
         <line x1="18" y1="130.5" x2="254" y2="130.5" stroke="#d8d5ce" />
-        <text x="18" y="148" font-size="10.5" fill="#9aa0a6">20 of 131,072 prototypes</text>
-        <text x="18" y="165" font-size="10.5" fill="#6d7178">the target</text>
+        <text x="18" y="150" font-size="10.5" fill="#6d7178">the target</text>
       </g>
     </svg>
-    <svg viewBox="282 0 280 172" role="img" aria-label="The student's distribution over the same 20 prototypes for the same tile: flatter, with its largest share on the same prototype">
+    <svg viewBox="282 0 280 158" role="img" aria-label="The student's distribution over the same 20 prototypes for the same tile: flatter, with its largest share on the same prototype">
       <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-        <text x="300" y="16" font-size="11.5" font-weight="600" fill="#7a2d24">Student &middot; &#964; = 0.1</text>
+        <text x="300" y="16" font-size="11.5" font-weight="600" fill="#7a2d24">Student</text>
         <g fill="#b5796c">
           <rect x="300" y="118" width="8" height="12" /><rect x="312" y="122" width="8" height="8" /><rect x="324" y="115" width="8" height="15" /><rect x="336" y="120" width="8" height="10" /><rect x="348" y="112" width="8" height="18" /><rect x="360" y="83" width="8" height="47" /><rect x="372" y="108" width="8" height="22" /><rect x="384" y="121" width="8" height="9" /><rect x="396" y="119" width="8" height="11" /><rect x="408" y="110" width="8" height="20" /><rect x="420" y="117" width="8" height="13" /><rect x="432" y="123" width="8" height="7" /><rect x="444" y="114" width="8" height="16" /><rect x="456" y="118" width="8" height="12" /><rect x="468" y="121" width="8" height="9" /><rect x="480" y="111" width="8" height="19" /><rect x="492" y="116" width="8" height="14" /><rect x="504" y="122" width="8" height="8" /><rect x="516" y="118" width="8" height="12" /><rect x="528" y="120" width="8" height="10" />
         </g>
         <line x1="300" y1="130.5" x2="536" y2="130.5" stroke="#d8d5ce" />
-        <text x="300" y="148" font-size="10.5" fill="#9aa0a6">the same 20, same tile</text>
-        <text x="300" y="165" font-size="10.5" fill="#6d7178">what the loss pulls onto it</text>
+        <text x="300" y="150" font-size="10.5" fill="#6d7178">pulled toward the target</text>
       </g>
     </svg>
     </div>
   </div>
-  <figcaption><b>Figure 8.</b> Top: how a token becomes a distribution. Bottom: the same tile scored by both models. The teacher&rsquo;s low temperature makes its distribution nearly a vote for one prototype; the student&rsquo;s flatter one is what the cross-entropy drags toward it.</figcaption>
+  <figcaption><b>Figure 8.</b> Top: how a token becomes a distribution. Bottom: the same tile scored by both models, over 20 of the prototypes. The teacher&rsquo;s low temperature makes its distribution nearly a vote for one prototype; the student&rsquo;s flatter one is what the cross-entropy drags toward it.</figcaption>
 </figure>
 
 <aside class="sidenote"><p>A prototype loss says <em>sort this tile the way I would</em>; a hidden-state loss says <em>compute it the way I would</em>. The first tolerates a student that reaches the teacher&rsquo;s answer by another route; the second does not. Using both is the compromise.</p></aside>
@@ -659,7 +648,7 @@ window.MathJax = {
 
 <details>
 <summary>Sharpening, centering, and the collapse failure mode</summary>
-<p>The teacher&rsquo;s logits have a running center subtracted and are divided by a temperature that warms from 0.04 to 0.07 over the first 16,519 steps, about a fifth of the epoch; the student&rsquo;s are softmaxed at a flat 0.1. The low teacher temperature sharpens: it turns a set of similar cosine scores into something close to a vote for a single prototype.</p>
+<p>The teacher&rsquo;s logits have a running center subtracted and are divided by a temperature that warms from 0.04 to 0.07 over the first 16,519 steps, about a fifth of the epoch; the student&rsquo;s are softmaxed at a flat 0.1. The low teacher temperature sharpens: it turns a set of similar scores into something close to a vote for a single prototype.</p>
 
 <p>Sharpening on its own has a degenerate solution, and it is the failure mode everyone who trains DINO meets. The cheapest way for two networks to agree on a sharp distribution is for every tile in the dataset to land on the same prototype: the loss goes to zero and the features carry no information. Centering prevents it. The center is a running average of the teacher&rsquo;s logits, so any prototype that keeps winning gets its score pushed down for the next batch, which drives the distribution back toward uniform. Sharpening pulls toward one spike, centering pushes toward flat, and DINO works in the tension between them.</p>
 </details>
@@ -672,7 +661,7 @@ window.MathJax = {
 
 <div class="eq">\[ H(a,b)=-\sum_{k=1}^{131{,}072}\operatorname{softmax}\!\left(\frac{a-c}{\tau_{t}}\right)_{k}\log\operatorname{softmax}\!\left(\frac{b}{\tau_{s}}\right)_{k}. \tag{5}\]</div>
 
-<p>Both heads are three-layer MLPs with hidden width 2,048, a bottleneck of 384 for DINO and 256 for iBOT, L2 normalization, and a bias-free layer with weight normalization (Salimans and Kingma, 2016) onto 131,072 prototypes. Each head carries its own prototypes and its own center. The center is an exponential moving average of the teacher&rsquo;s logits with momentum 0.9, and the teacher-side heads are exponential moving averages of the student&rsquo;s heads, with a momentum that rises from 0.994 to 1.0 along a cosine over the epoch. The final prototype layer is frozen for the first 5,504 steps, 7% of the epoch, the standard DINO guard against an unstable codebook early in training.</p>
+<p>Both heads are three-layer MLPs with hidden width 2,048, a bottleneck of 384 for DINO and 256 for iBOT, L2 normalization, and a bias-free layer with weight normalization (Salimans and Kingma, 2016) onto 131,072 prototypes. Each head carries its own prototypes and its own center. The center is an exponential moving average of the teacher&rsquo;s logits with momentum 0.9, and the teacher-side heads are exponential moving averages of the student&rsquo;s heads, with a momentum that rises from 0.994 to 1.0 along a cosine over the epoch. The final prototype layer is frozen for the first 5,504 steps, 7% of the epoch, the standard DINO guard against an unstable codebook early in training. After that each prototype&rsquo;s length trains along with its direction, as in DINOv2.</p>
 
 <p>One shape detail makes any of this possible. The student&rsquo;s trunk is 640 channels wide and the teacher&rsquo;s is 1,536, so a learned \(640\rightarrow1536\) <em>neck</em> sits between the student trunk and its heads. Both models then run identically shaped heads over identically shaped features, and the neck is initialized as a scatter matrix, so at step zero the student&rsquo;s features land where the teacher&rsquo;s would. The neck is a separate layer from the hidden-state projection described below, even though both are \(640\rightarrow1536\) and both start from the same channel map.</p>
 </details>
@@ -684,29 +673,29 @@ window.MathJax = {
 <figure class="fig wide" id="fig-ladder">
   <div class="panel scrollx">
     <div class="ladder">
-      <div class="ladder-head">Student &middot; 640 wide, trainable</div>
+      <div class="ladder-head">Student</div>
       <div></div>
-      <div class="ladder-head t">Teacher &middot; 1,536 wide, frozen</div>
+      <div class="ladder-head t">Teacher</div>
 
-      <div class="lnode s">patch + CLS + position<small>entering block 0</small></div>
+      <div class="lnode s">input embedding</div>
       <div class="tie"><span>\(\mathcal{L}_{\mathrm{emb}}\)</span><span class="tie-sub">cosine</span></div>
-      <div class="lnode t">patch + CLS + position<small>entering block 0</small></div>
+      <div class="lnode t">input embedding</div>
 
-      <div class="lnode s">blocks 6, 13, 19, 26<small>four interior taps</small></div>
-      <div class="tie"><span>\(\mathcal{L}_{\mathrm{IS}}\)</span><span class="tie-sub">cosine, 4 pairs</span></div>
-      <div class="lnode t">blocks 13, 20, 26, 33<small>the blocks they came from</small></div>
+      <div class="lnode s">interior blocks</div>
+      <div class="tie"><span>\(\mathcal{L}_{\mathrm{IS}}\)</span><span class="tie-sub">cosine</span></div>
+      <div class="lnode t">matching blocks</div>
 
-      <div class="lnode s">final tokens<small>after block 32</small></div>
-      <div class="tie"><span>\(\mathcal{L}_{\mathrm{IS}}\)</span><span class="tie-sub">cosine, 5th pair</span></div>
-      <div class="lnode t">final tokens<small>after block 39</small></div>
+      <div class="lnode s">final tokens</div>
+      <div class="tie"><span>\(\mathcal{L}_{\mathrm{IS}}\)</span><span class="tie-sub">cosine</span></div>
+      <div class="lnode t">final tokens</div>
 
-      <div class="lnode s">CLS prototypes<small>131,072-way</small></div>
+      <div class="lnode s">CLS prototypes</div>
       <div class="tie"><span>\(\mathcal{L}_{\mathrm{DINO}}\)</span><span class="tie-sub">cross-entropy</span></div>
-      <div class="lnode t">CLS prototypes<small>EMA head</small></div>
+      <div class="lnode t">CLS prototypes</div>
 
-      <div class="lnode s">patch prototypes<small>196 per view</small></div>
+      <div class="lnode s">patch prototypes</div>
       <div class="tie"><span>\(\mathcal{L}_{\mathrm{iBOT}}\)</span><span class="tie-sub">cross-entropy</span></div>
-      <div class="lnode t">patch prototypes<small>EMA head</small></div>
+      <div class="lnode t">patch prototypes</div>
     </div>
   </div>
   <figcaption><b>Figure 9.</b> Every place the two networks are compared, in forward order. The top three rows are raw activations; the bottom two are probability distributions produced by projection heads. The hidden-state rows cross the width gap with a learned projection and the prototype rows with the student&rsquo;s neck; both are initialized from the channel map that pruning produced, and that map also picks the teacher block each interior tap is paired with.</figcaption>
@@ -743,8 +732,8 @@ window.MathJax = {
   <div>
     <dt>\(\mathcal{L}_{\mathrm{emb}}\): the tensor entering block 0</dt>
     <dd>
-      <div class="eq">\[ \mathcal{L}_{\mathrm{emb}}=d\!\left(e_{s},e_{t}\right) \tag{10}\]</div>
-      <p>The same distance on the patch projection plus CLS token plus positional embedding, before any attention has happened. It gets its own term rather than a sixth entry above because it is the only supervision on the part of the student in front of the first block. Left free, the student could drift into a different input convention and then satisfy every other term by compensating for it downstream.</p>
+      <div class="eq">\[ \mathcal{L}_{\mathrm{emb}}=\frac{1}{2}\sum_{j=1}^{2} d\!\left(e^{j}_{s},e^{j}_{t}\right) \tag{10}\]</div>
+      <p>The same distance on the patch projection plus CLS token plus positional embedding, before any attention has happened, averaged over the two views. It gets its own term rather than a sixth entry above because it is the only supervision on the part of the student in front of the first block. Left free, the student could drift into a different input convention and then satisfy every other term by compensating for it downstream.</p>
     </dd>
   </div>
 </dl>
@@ -802,13 +791,11 @@ window.MathJax = {
           <line x1="142" y1="100" x2="142" y2="206" />
         </g>
         <g font-size="11" fill="#6d7178">
-          <text x="84" y="38">prototype layers unfreeze</text>
-          <text x="84" y="52" fill="#9aa0a6">step 5,504</text>
-          <text x="148" y="112">teacher temperature reaches 0.07</text>
-          <text x="148" y="126" fill="#9aa0a6">step 16,519</text>
+          <text x="84" y="38">prototypes unfreeze</text>
+          <text x="148" y="112">temperature warmup ends</text>
         </g>
         <polyline fill="none" stroke="#7a2d24" stroke-width="2" stroke-linejoin="round" points="46.3,40.3 48.2,42.1 50.0,43.9 51.9,46.6 53.8,47.6 55.6,48.8 57.5,49.4 59.4,49.8 61.2,50.2 63.1,50.6 65.0,50.6 66.8,51.0 68.7,50.6 70.5,51.2 72.4,52.5 74.3,54.1 76.1,59.6 76.8,64.2 77.4,70.3 78.0,78.4 78.6,88.0 79.2,98.3 79.9,110.3 80.5,121.7 81.1,132.6 81.7,143.0 82.3,151.5 83.0,158.6 83.6,164.3 84.8,170.4 86.7,175.2 88.6,178.5 90.4,180.3 92.3,181.7 94.2,183.0 96.0,183.8 97.9,184.2 99.7,184.8 101.6,186.0 103.5,187.2 105.3,187.6 107.2,187.0 109.1,186.8 110.9,186.4 112.8,186.8 114.7,187.0 116.5,186.6 118.4,185.8 120.3,184.6 122.1,182.8 124.0,180.3 125.8,178.1 127.7,175.9 129.6,173.8 131.4,171.8 133.3,171.0 135.2,170.2 137.0,169.6 138.9,168.8 140.8,167.9 142.6,167.0 144.5,166.7 146.3,166.7 148.2,167.3 150.1,167.7 151.9,167.5 153.8,167.1 155.7,166.5 157.5,165.9 159.4,166.3 161.3,166.7 163.1,166.7 165.0,166.7 166.9,166.3 168.7,166.3 170.6,166.3 172.4,166.5 174.3,166.7 176.2,166.1 178.0,165.3 179.9,164.7 181.8,165.1 183.6,165.3 185.5,166.1 187.4,166.5 189.2,166.5 191.1,166.5 193.0,166.3 194.8,166.1 196.7,165.5 198.5,164.9 200.4,164.5 202.3,163.7 204.1,162.7 206.0,161.4 207.9,159.8 209.7,158.6 211.6,157.8 213.5,157.8 215.3,157.8 217.2,158.0 219.0,158.4 220.9,158.4 222.8,158.4 224.6,159.0 226.5,159.6 228.4,160.0 230.2,159.4 232.1,159.0 234.0,159.2 235.8,159.2 237.7,159.6 239.6,159.2 241.4,159.4 243.3,159.6 245.1,159.8 247.0,159.6 248.9,159.8 250.7,159.6 252.6,159.0 254.5,155.2 255.7,150.1 257.0,143.6 258.2,139.5 260.1,137.9 261.9,145.2 263.8,149.1 265.7,150.3 267.5,149.9 269.4,150.5 271.2,148.1 273.1,148.3 275.0,148.5 276.8,151.3 278.7,152.7 280.6,152.5 282.4,152.1 284.3,152.7 286.2,153.3 288.0,154.3 289.9,153.9 291.7,153.1 293.6,152.3 295.5,152.3 297.3,152.7 299.2,153.1 301.1,153.1 302.9,152.7 304.8,152.3 306.7,152.1 308.5,152.5 310.4,152.5 312.3,152.3 314.1,152.1 316.0,151.9 317.8,151.9 319.7,152.3 321.6,152.1 323.4,151.7 325.3,150.5 327.2,149.5 329.0,149.5 330.9,149.9 332.8,150.3 334.6,150.3 336.5,149.9 338.3,150.1 340.2,148.9 342.1,147.6 343.9,146.6 345.8,146.4 347.7,146.4 349.5,146.2 351.4,146.0 353.3,145.4 355.1,144.8 357.0,144.0 358.9,143.6 360.7,143.4 362.6,142.8 364.4,142.4 366.3,141.8 368.2,141.6 370.0,140.9 371.9,140.7 373.8,140.9 375.6,140.7 377.5,140.7 379.4,140.1 381.2,140.7 383.1,140.7 385.0,140.3 386.8,140.1 388.7,140.1 390.5,140.3 392.4,140.7 394.3,141.2 396.1,141.4 398.0,142.2 399.9,142.2 401.7,142.2 403.6,142.2 405.5,142.4 407.3,142.0 409.2,141.6 411.0,142.2 412.9,142.6 414.8,143.2 416.6,143.4 418.5,143.2 420.4,143.2 422.2,143.6 424.1,143.8 426.0,144.0 427.8,143.8 429.7,143.8 431.6,143.2 433.4,143.4 435.3,143.8 437.1,144.2 439.0,144.4 440.9,144.4 442.7,144.4 444.6,144.4 446.5,144.2 448.3,144.4 450.2,144.2 452.1,144.0 453.9,144.0 455.8,144.2 457.7,144.2 459.5,144.6 461.4,144.6 463.2,144.8 465.1,145.0 467.0,144.4 468.8,144.6 470.7,144.6 472.6,145.0 474.4,144.6 476.3,144.4 478.2,145.0 480.0,145.2 481.9,145.2 483.7,145.0 485.6,145.2 487.5,145.2 489.3,145.4 491.2,144.8 493.1,144.6 493.7,144.6" />
-        <text x="504" y="149" font-size="12.5" font-weight="600" fill="#7a2d24">final 12.8</text>
+        <text x="504" y="149" font-size="12.5" font-weight="600" fill="#7a2d24">12.8</text>
       </g>
     </svg>
   </div>
@@ -855,7 +842,7 @@ window.MathJax = {
 
 <p><b class="runin">GTEx.</b> Our own benchmark: 2,000 slides of normal tissue from 847 donors in the GTEx project. Five tasks come from the pathologists&rsquo; notes that accompany the slides: atherosis in the aorta, fibrosis in the heart&rsquo;s left ventricle, steatosis in the liver, emphysema in the lung and calcification in the tibial artery, each with up to 125 positive slides and matched negatives. A sixth, tissue of origin across 20 tissues, is saturated for every encoder. Each task is scored by AUROC over 10 donor-disjoint folds under the four heads of <a href="#tab-gtex">Table 2</a>. NanoPath never trained on a GTEx slide and Prov-GigaPath pretrained on Providence slides, so the benchmark carries no training overlap for either encoder.</p>
 
-<p><b class="runin">H0-mini.</b> Encoded through its 768-dimensional class token, as NanoPath is. Its paper scores HEST with the class token concatenated to the mean patch feature, so the class-token leaderboard entries we reproduce, 0.3957 on HEST against the published 0.3958 and 0.541 on PLISM, are not the numbers in its paper. It was distilled for 105,000 steps at batch 2,048 on 43 million tiles from the same TCGA slides as NanoPath, about 215 million tile views in all.</p>
+<p><b class="runin">H0-mini.</b> Encoded through its 768-dimensional class token, as NanoPath is. Its paper scores HEST with the class token concatenated to the mean patch feature, so the class-token leaderboard entries we reproduce, 0.3957 on HEST against the published 0.3958 and 0.541 on PLISM, are not the numbers in its paper. It was distilled for 105,000 steps at batch 2,048 on 43 million tiles from the same TCGA slides as NanoPath, about 215 million tiles seen in all.</p>
 </details>
 
 <details class="section-drawer" id="appendix-b">
