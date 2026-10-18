@@ -241,6 +241,7 @@ table { width: 100%; border-collapse: collapse; }
 .booktabs.compact { font-size: .7rem; }
 .booktabs.compact td, .booktabs.compact th { padding: 6px 8px; }
 .booktabs.nums thead th:not(:first-child), .booktabs.nums tbody td:not(:first-child) { text-align: right; white-space: nowrap; }
+.booktabs.nums tbody td[colspan] { text-align: left; }
 .booktabs tr.ref td { color: var(--muted); }
 .ci { color: var(--faint); font-size: .82em; white-space: nowrap; }
 .params { border-top: 1.4px solid var(--ink); border-bottom: 1.4px solid var(--ink); }
