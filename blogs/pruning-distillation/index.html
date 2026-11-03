@@ -106,9 +106,9 @@ window.MathJax = {
 <!-- ================= cold open ================= -->
 <section id="lede">
 
-<p class="lede">TinyPath is a 103.6M-parameter H&amp;E tile encoder cut out of the 1.13B-parameter Prov-GigaPath (Xu et&nbsp;al., 2024) and distilled from it for one epoch. On published benchmarks it keeps 98.6% of its teacher&rsquo;s HEST score, matches its EVA classification average and is far more robust to scanner and stain changes.</p>
+<p class="lede">TinyPath is a 103.6M-parameter H&amp;E tile encoder cut from the 1.13B-parameter Prov-GigaPath (Xu et&nbsp;al., 2024) and distilled from it for one epoch. It keeps 98.6% of its teacher&rsquo;s HEST score, matches its EVA classification average and is far more robust to scanner and stain changes.</p>
 
-<p class="lede">H0-mini (Filiot et&nbsp;al., 2025) and GigaPath-Flash (Usuyama et&nbsp;al., 2026) distill their teachers into a standard small architecture. TinyPath follows Minitron (Muralidharan et&nbsp;al., 2024) instead and starts from the teacher itself, keeping only its most important channels, heads, MLP hidden dimensions and blocks. It is released under Apache-2.0, like its teacher, so it can be used commercially and its derivatives shared. H0-mini&rsquo;s CC BY-NC-ND 4.0 license allows neither.</p>
+<p class="lede">H0-mini (Filiot et&nbsp;al., 2025) and GigaPath-Flash (Usuyama et&nbsp;al., 2026) distill their teachers into standard small architectures. TinyPath instead follows Minitron (Muralidharan et&nbsp;al., 2024), starting from the teacher and keeping only its most important channels, heads, MLP hidden dimensions and blocks. Like its teacher, it is released under Apache-2.0, so it can be used commercially and its derivatives shared. H0-mini&rsquo;s CC BY-NC-ND 4.0 license allows neither.</p>
 
 </section>
 
@@ -117,10 +117,10 @@ window.MathJax = {
 <h2>Summary</h2>
 
 <ol class="findings">
-  <li><b>TinyPath keeps nearly all of its teacher&rsquo;s accuracy and is far more robust.</b> It scores 0.382 against Prov-GigaPath&rsquo;s 0.387 on HEST and averages 0.8525 against 0.8524 over five of the EVA leaderboard&rsquo;s classification tasks. On PLISM it scores 0.530 against 0.333. PLISM&rsquo;s code now resizes tiles before Prov-GigaPath sees them, and no score has been published that way, so we ran Prov-GigaPath ourselves. With the resize, TinyPath scores 0.520 against 0.320.</li>
-  <li><b>H0-mini scores higher on HEST but keeps a smaller share of its teacher&rsquo;s score.</b> The 86M-parameter student of the stronger H-optimus-0 scores 0.396, 95.4% of its teacher&rsquo;s, where TinyPath keeps 98.6%. It saw about 2.7 times as many tiles as TinyPath, from the same slides.</li>
-  <li><b>GigaPath-Flash keeps a smaller share of the same teacher&rsquo;s scores.</b> Prov-GigaPath&rsquo;s own 22M-parameter student, about a fifth of TinyPath&rsquo;s size, has no published score on these benchmarks, so we ran it ourselves. It keeps 92.7% of its teacher&rsquo;s HEST score, 96.7% of its EVA patch-task mean and 88.3% of its PLISM score.</li>
-  <li><b>TinyPath took about 835 GPU-hours to build.</b> Pruning, including a search over 861 candidate shapes, took 44 GPU-hours. Distillation took 99 hours on eight A100 GPUs, one epoch over 78.9 million tiles from 6,093 TCGA slides. Before distillation the sliced network scores 0.236 on HEST, and the first tenth of the epoch takes it past the teacher (<a href="#run">The training run</a>).</li>
+  <li><b>TinyPath keeps nearly all of its teacher&rsquo;s accuracy and is far more robust.</b> It scores 0.382 against Prov-GigaPath&rsquo;s 0.387 on HEST, 0.8525 against 0.8524 averaged over five EVA leaderboard classification tasks, and 0.530 against 0.333 on PLISM. PLISM&rsquo;s code now resizes tiles first, a setting with no published Prov-GigaPath score, so we ran Prov-GigaPath ourselves. There TinyPath scores 0.520 against 0.320.</li>
+  <li><b>H0-mini scores higher on HEST but keeps less of its teacher&rsquo;s score.</b> Distilled from the stronger H-optimus-0 on the same slides, with 2.7 times as many tiles, the 86M-parameter model scores 0.396, 95.4% of its teacher&rsquo;s, against TinyPath&rsquo;s 98.6%.</li>
+  <li><b>GigaPath-Flash keeps less of the same teacher&rsquo;s scores.</b> Prov-GigaPath&rsquo;s own 22M-parameter student, a fifth of TinyPath&rsquo;s size, has no published scores here. In our runs it keeps 92.7% of the teacher&rsquo;s HEST score, 96.7% of its EVA patch-task mean and 88.3% of its PLISM score.</li>
+  <li><b>TinyPath took about 835 GPU-hours to build.</b> Pruning, including a search over 861 candidate shapes, took 44 GPU-hours. Distillation took 99 hours on eight A100s, one epoch over 78.9 million tiles from 6,093 TCGA slides. The sliced network starts at 0.236 on HEST and passes the teacher within the first tenth of the epoch (<a href="#run">The training run</a>).</li>
 </ol>
 </section>
 
@@ -128,11 +128,11 @@ window.MathJax = {
 <section id="results">
 <h2>Results</h2>
 
-<p>We score TinyPath on published benchmarks, whose tasks, splits and scoring were fixed before it existed. HEST tests how well features predict spatial gene expression (Jaume et&nbsp;al., 2024), EVA tests patch and slide classification and nucleus segmentation (kaiko.ai et&nbsp;al., 2024), and PLISM measures how far a feature moves when the same tissue is rescanned or restained (Ochi et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). On whole slides we run the PORPOISE survival model (Chen et&nbsp;al., 2022) and the Prov-GigaPath paper&rsquo;s subtyping and mutation tasks, which we rebuilt on public TCGA slides (Weinstein et&nbsp;al., 2013) because most of the paper&rsquo;s slides are private. Every score comes from frozen features with at most a light head on top, and next to the teacher we report two other compact encoders: H0-mini (Filiot et&nbsp;al., 2025), an 86M-parameter ViT-B distilled from Bioptimus&rsquo;s H-optimus-0 (Saillard et&nbsp;al., 2024), and GigaPath-Flash (Usuyama et&nbsp;al., 2026), a 22M-parameter ViT-S distilled from Prov-GigaPath itself. Every other model&rsquo;s score is the published one wherever the protocol behind it matches ours. Where it does not, we say so and run the model ourselves: Prov-GigaPath under the resize PLISM&rsquo;s code now applies, H0-mini on EVA, whose paper predates EVA&rsquo;s current settings, and Prov-GigaPath again on the slide-level tasks, which we had to rebuild. GigaPath-Flash has no published score on any benchmark here, so we ran its released tile encoder ourselves, with its teacher&rsquo;s preprocessing. <a href="#appendix-a">Appendix A</a> gives each protocol and <a href="#appendix-b">Appendix B</a> every score.</p>
+<p>We score TinyPath&rsquo;s frozen features on published benchmarks, with at most a light head on top. HEST tests prediction of spatial gene expression (Jaume et&nbsp;al., 2024), EVA patch and slide classification and nucleus segmentation (kaiko.ai et&nbsp;al., 2024), and PLISM robustness to rescanning and restaining (Ochi et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). On whole slides we run PORPOISE survival (Chen et&nbsp;al., 2022) and the Prov-GigaPath paper&rsquo;s subtyping and mutation tasks, rebuilt on public TCGA slides (Weinstein et&nbsp;al., 2013). We also compare H0-mini (Filiot et&nbsp;al., 2025), an 86M-parameter ViT-B distilled from H-optimus-0 (Saillard et&nbsp;al., 2024), and GigaPath-Flash (Usuyama et&nbsp;al., 2026), a 22M-parameter ViT-S distilled from Prov-GigaPath. Other models&rsquo; scores are published where the protocol matches ours. Otherwise we ran them ourselves: Prov-GigaPath under PLISM&rsquo;s current resize and on slide-level tasks, H0-mini under EVA&rsquo;s current settings and GigaPath-Flash everywhere (<a href="#appendix-a">Appendix A</a>, <a href="#appendix-b">Appendix B</a>).</p>
 
 <h3 id="tile-bench">Tile-level benchmarks</h3>
 
-<p>On HEST and EVA TinyPath is close to its teacher. It keeps 98.6% of Prov-GigaPath&rsquo;s HEST score. EVA&rsquo;s leaderboard leaves BACH out of its average, and over the other five EVA classification tasks we ran (BreakHis, CRC, Gleason, PatchCamelyon and Camelyon16-small), TinyPath averages 0.8525 while Prov-GigaPath&rsquo;s published scores average 0.8524. Over the five patch tasks in <a href="#fig-headline">Figure 1</a>, which include BACH but not Camelyon16-small, it averages 0.837 against 0.841. On PLISM it scores about 0.2 higher.</p>
+<p>TinyPath keeps 98.6% of Prov-GigaPath&rsquo;s HEST score. On EVA it averages 0.8525 against 0.8524 over BreakHis, CRC, Gleason, PatchCamelyon and Camelyon16-small, the classification tasks in EVA&rsquo;s leaderboard average that we ran. Over the five patch tasks in <a href="#fig-headline">Figure 1</a>, which swap Camelyon16-small for BACH, it averages 0.837 against 0.841. On PLISM it scores about 0.2 higher.</p>
 
 <figure class="fig" id="fig-headline">
   <div class="panel">
@@ -163,10 +163,10 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 1.</b> Frozen tile features on the three tile-level benchmarks, with each student listed under its teacher. Higher is better, and bars run from 0 to 1. PLISM feeds tiles in unresized, the setting that reproduces Prov-GigaPath&rsquo;s leaderboard entry and the one H-optimus-0 and H0-mini use. The other models&rsquo; scores are published except H0-mini&rsquo;s EVA mean and all of GigaPath-Flash&rsquo;s, which we ran ourselves. H0-mini&rsquo;s paper ran EVA before the benchmark&rsquo;s current settings and has no BreakHis or Gleason score, and GigaPath-Flash has no published score on these benchmarks (<a href="#tab-headline">Table 1</a>).</figcaption>
+  <figcaption><b>Figure 1.</b> Frozen tile features, each student under its teacher. Higher is better, and bars start at 0. PLISM tiles are unresized, as in the published scores. Other models&rsquo; scores are published except H0-mini&rsquo;s EVA mean and all of GigaPath-Flash&rsquo;s, which we ran ourselves (<a href="#tab-headline">Table 1</a>).</figcaption>
 </figure>
 
-<p>What TinyPath gives up is concentrated in a few tasks (<a href="#fig-delta">Figure 2</a>). On HEST, colon and rectum account for more than the whole deficit. On EVA it trails only on BreakHis, the noisiest task in the suite, whose score moved by up to 0.07 between consecutive checkpoints, and on MoNuSAC nucleus segmentation, the one benchmark here that reads patch tokens rather than the class token. Its largest lead is on Camelyon16-small, which pools a slide&rsquo;s patches with attention-MIL, though only by about one standard deviation of its 20 runs.</p>
+<p>TinyPath&rsquo;s losses are concentrated in a few tasks (<a href="#fig-delta">Figure 2</a>). On HEST, colon and rectum account for more than the whole deficit. On EVA it trails only on BreakHis, the noisiest task, which swung by up to 0.07 between checkpoints, and on MoNuSAC, the only benchmark here that reads patch tokens. Its largest lead, on Camelyon16-small, is about one standard deviation.</p>
 
 <figure class="fig" id="fig-delta">
   <div class="panel">
@@ -203,10 +203,10 @@ window.MathJax = {
       <div class="bar-scale"><span></span><span><i>&minus;0.05</i><i>0</i><i>+0.05</i></span><span></span></div>
     </div>
   </div>
-  <figcaption><b>Figure 2.</b> TinyPath&rsquo;s score minus Prov-GigaPath&rsquo;s: red bars where TinyPath is ahead, blue where Prov-GigaPath is. On HEST and EVA, Prov-GigaPath&rsquo;s scores are published. No published score matches the slide-level protocols we rebuilt, so for those tasks we ran Prov-GigaPath ourselves. The survival difference is a little over one standard error, and breast subtype is ductal versus lobular, kept apart from the other five subtyping tasks. Full Camelyon16 has no published Prov-GigaPath score and is left out (<a href="#appendix-b">Appendix B</a>).</figcaption>
+  <figcaption><b>Figure 2.</b> TinyPath&rsquo;s score minus Prov-GigaPath&rsquo;s, red where TinyPath leads and blue where it trails. Prov-GigaPath&rsquo;s HEST and EVA scores are published, and its slide-level scores come from our own runs. Breast subtype (ductal versus lobular) is shown apart from the other five subtyping tasks. Full Camelyon16 has no published Prov-GigaPath score and is left out (<a href="#appendix-b">Appendix B</a>).</figcaption>
 </figure>
 
-<p>The PLISM gain holds with the resize the benchmark&rsquo;s code now applies, and most of it is retrieval: TinyPath is far more likely to find the same tissue under another scanner or stain (<a href="#fig-plism">Figure 3</a>). H0-mini also beats its own teacher, though by less, scoring 0.541 against 0.480. That robustness gain is what its paper is built around (Filiot et&nbsp;al., 2025), but distillation alone does not bring it: GigaPath-Flash, distilled from Prov-GigaPath on Providence slides, scores 0.294 in our run, below its teacher&rsquo;s published 0.333 (<a href="#tab-plism">Table 5</a>). The two students that gain were both distilled on the same 6,093 TCGA slides, and one plausible explanation is that distilling on that corpus smooths away acquisition-specific detail the teacher still encodes. Either way, TinyPath&rsquo;s representation has changed rather than merely shrunk, and robustness is not accuracy: the same model trails its teacher on HEST and MoNuSAC.</p>
+<p>The PLISM gain holds under the current resize and is mostly retrieval: TinyPath is far more likely to find the same tissue under another scanner or stain (<a href="#fig-plism">Figure 3</a>). H0-mini also beats its teacher, by less (0.541 against 0.480), but GigaPath-Flash, distilled on Providence slides, scores 0.294 in our run against its teacher&rsquo;s 0.333 (<a href="#tab-plism">Table 5</a>). The two students that gain were both distilled on the same 6,093 TCGA slides, which may smooth away acquisition-specific detail.</p>
 
 <figure class="fig" id="fig-plism">
   <div class="panel">
@@ -238,18 +238,18 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 3.</b> PLISM in the current mode, which resizes tiles to 256 and center-crops them back to 224, as the benchmark&rsquo;s code now does for Prov-GigaPath. The score is the mean of four medians over pairs of acquisitions: the cosine similarity between the two features of one tissue position, and how often one finds the other among its ten nearest neighbors across scanners, across stains, or across both. The leaderboard has never listed Prov-GigaPath in this mode, so Prov-GigaPath&rsquo;s bars come from our own run. Bars run from 0 to 1.</figcaption>
+  <figcaption><b>Figure 3.</b> PLISM in its current mode, which resizes tiles to 256 and center-crops back to 224. The score averages the four medians over acquisition pairs. Prov-GigaPath has no published score in this mode, so its bars come from our own run.</figcaption>
 </figure>
 
 <h3 id="slide-bench">Slide-level tasks</h3>
 
-<p>Most public slide cohorts come from TCGA, and so does TinyPath&rsquo;s training set: it trained on slides from 443 of the 444 patients in our PORPOISE LUAD cohort and on 1,438 of the 1,503 slides behind our Prov-GigaPath tasks, though never on their labels. Prov-GigaPath, pretrained on Providence slides, saw none of them, so these results describe the representation rather than measure generalization.</p>
+<p>TinyPath trained on slides from 443 of the 444 patients in our PORPOISE LUAD cohort and on 1,438 of the 1,503 slides behind our Prov-GigaPath tasks, though not on their labels. Prov-GigaPath saw none of them, so these results describe the representation rather than measure generalization.</p>
 
-<p>No published Prov-GigaPath score matches the protocols we ran here: PORPOISE never evaluated it, and its own paper ran its LongNet slide encoder with random splits, mostly on Providence&rsquo;s private slides. Our PORPOISE rebuild also departs from the PORPOISE paper in its cohort, tiling and head seeds (<a href="#appendix-a">Appendix A</a>). So here, as in PLISM&rsquo;s current mode, we ran Prov-GigaPath ourselves. On the Prov-GigaPath tasks TinyPath&rsquo;s subtyping and mutation averages come within 0.01 AUROC of its teacher&rsquo;s, with single tasks differing by up to 0.02 in either direction, and it trails by 0.033 on breast ductal-versus-lobular subtyping (<a href="#fig-delta">Figure 2</a>, <a href="#tab-tcga">Table 8</a>). On LUAD survival, TinyPath, Prov-GigaPath and the PORPOISE paper&rsquo;s own ResNet-50 features (He et&nbsp;al., 2016), all three run through our rebuild, land inside the interval the paper published for ResNet-50, within a little over one standard error of each other (<a href="#tab-surv">Table 7</a>). Telling them apart would need a paired comparison on the same patients, which we have not run, and histology alone predicts LUAD survival weakly: the paper&rsquo;s own result was not significant.</p>
+<p>No published Prov-GigaPath score matches these protocols. PORPOISE never evaluated it, and its own paper used its LongNet slide encoder on random splits of mostly private slides, so we ran it ourselves. Our PORPOISE rebuild also differs from the paper in cohort, tiling and head seeds, so we reran the paper&rsquo;s ResNet-50 baseline (He et&nbsp;al., 2016) through it (<a href="#appendix-a">Appendix A</a>). TinyPath&rsquo;s subtyping and mutation averages come within 0.01 AUROC of its teacher&rsquo;s, but it trails by 0.033 on breast ductal-versus-lobular subtyping (<a href="#tab-tcga">Table 8</a>). On LUAD survival, TinyPath, Prov-GigaPath and ResNet-50 land within a little over one standard error of each other and inside the paper&rsquo;s ResNet-50 interval (<a href="#tab-surv">Table 7</a>), though histology alone predicts survival weakly.</p>
 
 <h3 id="compact">Two other compact encoders</h3>
 
-<p>H0-mini (Filiot et&nbsp;al., 2025) is the strongest compact encoder here on HEST, above Prov-GigaPath itself, but its teacher is stronger too: it keeps 95.4% of H-optimus-0&rsquo;s score (95.7% under its own protocol, which concatenates the class token with the mean patch feature), where TinyPath keeps 98.6% of Prov-GigaPath&rsquo;s. Task by task, TinyPath keeps the larger share on seven of HEST&rsquo;s nine tasks. On EVA&rsquo;s patch tasks the two keep nearly the same share of their teachers&rsquo; means, 99.5% and 99.8%, and on PLISM, where both beat their teachers, TinyPath reaches 159% of its teacher&rsquo;s score and H0-mini 113% (<a href="#fig-retention">Figure 4</a>). The two students train on the same 6,093 TCGA slides but differ in more than their teachers: H0-mini is a ViT-B with 14-pixel patches and four register tokens, distills through its teacher&rsquo;s pretrained projection heads, which Prov-GigaPath does not ship, does not start from its teacher&rsquo;s weights, and saw about 215 million tiles, 2.7 times as many as TinyPath. The retention figures cannot say which difference matters.</p>
+<p>H0-mini is the strongest compact encoder here on HEST, above Prov-GigaPath itself, but its teacher is stronger too. It keeps 95.4% of H-optimus-0&rsquo;s score (95.7% under its own protocol), against TinyPath&rsquo;s 98.6%, and TinyPath keeps the larger share on seven of HEST&rsquo;s nine tasks. On EVA&rsquo;s patch tasks TinyPath keeps 99.5% and H0-mini 99.8%, and on PLISM 159% and 113% (<a href="#fig-retention">Figure 4</a>). The two share training slides but little else: H0-mini is a ViT-B with 14-pixel patches and four register tokens, does not start from its teacher&rsquo;s weights, distills through pretrained heads that Prov-GigaPath does not ship and saw 2.7 times as many tiles, so retention cannot say which difference matters.</p>
 
 <figure class="fig wide" id="fig-retention">
   <div class="panel">
@@ -356,17 +356,17 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 4.</b> Each student&rsquo;s score as a share of its teacher&rsquo;s, task by task, for TinyPath and GigaPath-Flash against Prov-GigaPath and H0-mini against H-optimus-0. A bar at 100% matches the teacher, and each mean row divides the student&rsquo;s mean by the teacher&rsquo;s. Bars run from 0 to 120% on HEST and EVA and from 0 to 160% on PLISM, where TinyPath and H0-mini score above their teachers. The scores are those of <a href="#tab-hest">Table 2</a>, <a href="#tab-eva">Table 3</a> and <a href="#tab-plism">Table 5</a>, with PLISM&rsquo;s tiles fed in unresized. Every teacher score is published, and so are H0-mini&rsquo;s outside EVA. We ran H0-mini on EVA ourselves, and GigaPath-Flash on every benchmark. Only tasks scored for all three students are shown, which leaves out EVA&rsquo;s slide and nuclei tasks and the TCGA tasks.</figcaption>
+  <figcaption><b>Figure 4.</b> Each student&rsquo;s score as a share of its teacher&rsquo;s, from <a href="#tab-hest">Table 2</a>, <a href="#tab-eva">Table 3</a> and <a href="#tab-plism">Table 5</a> with PLISM tiles unresized. Mean rows divide the student&rsquo;s mean by the teacher&rsquo;s. Teacher scores are published, and we ran H0-mini on EVA and GigaPath-Flash everywhere.</figcaption>
 </figure>
 
-<p>GigaPath-Flash (Usuyama et&nbsp;al., 2026) is the closer relative: the same teacher, distilled with the DINOv2 recipe, minus its KoLeo regularizer, into a 22M-parameter ViT-S/16 on Providence slides, then given its own 21M-parameter LongNet slide encoder (Ding et&nbsp;al., 2023). Its authors report it only through that slide encoder, on their own splits of PANDA prostate grading (Bulten et&nbsp;al., 2022) and EBRAINS brain tumor subtyping (Roetzer-Pejrimovsky et&nbsp;al., 2022), where it keeps 96.8% of its teacher&rsquo;s average score at a fiftieth of the compute per slide. We have run neither task. With no published score on the benchmarks here, we ran its released tile encoder through the same pipelines as its teacher. It keeps 92.7% of Prov-GigaPath&rsquo;s HEST score and 96.7% of its EVA patch-task mean, and it is the one student here that falls below its teacher on PLISM, at 88.3%. TinyPath keeps the larger share on all five EVA patch tasks and on seven of HEST&rsquo;s nine, all but colon and rectum, its own two weakest (<a href="#fig-retention">Figure 4</a>). GigaPath-Flash also has about a fifth of TinyPath&rsquo;s parameters and trained on different slides, so here too the retention figures cannot say which difference matters.</p>
+<p>GigaPath-Flash shares TinyPath&rsquo;s teacher. It is a ViT-S/16 distilled on Providence slides with the DINOv2 recipe minus KoLeo, and its authors report it only through its own LongNet slide encoder (Ding et&nbsp;al., 2023), on custom splits of PANDA prostate grading (Bulten et&nbsp;al., 2022) and EBRAINS brain tumor subtyping (Roetzer-Pejrimovsky et&nbsp;al., 2022), where it keeps 96.8% of its teacher&rsquo;s average. Through our tile-level pipelines it keeps 92.7% of Prov-GigaPath&rsquo;s HEST score, 96.7% of its EVA patch-task mean and 88.3% of its PLISM score, the only student below its teacher there. TinyPath keeps the larger share on every EVA patch task and on seven of HEST&rsquo;s nine (<a href="#fig-retention">Figure 4</a>), though the two also differ in size and training slides.</p>
 </section>
 
 <!-- ================= method ================= -->
 <section id="method">
 <h2>How TinyPath is built</h2>
 
-<p>TinyPath comes out of two stages run back to back. <b>Pruning</b> reads activations off the frozen teacher, decides the student&rsquo;s shape and copies every weight it keeps straight out of the teacher. <b>Distillation</b> is an ordinary training run that leaves the architecture alone and makes the pruned network work again (<a href="#fig-pipeline">Figure 5</a>). Minitron was written for language models, and a ViT has no vocabulary logits to match and no perplexity to measure, so a few pieces of its recipe had to be swapped out. <a href="#appendix-d">Appendix D</a> lists them.</p>
+<p><b>Pruning</b> reads activations off the frozen teacher, picks the student&rsquo;s shape and copies the kept weights. <b>Distillation</b> then retrains the pruned network (<a href="#fig-pipeline">Figure 5</a>). Minitron was written for language models, so we replaced the parts a ViT lacks, such as vocabulary logits and perplexity (<a href="#appendix-d">Appendix D</a>).</p>
 
 <figure class="fig wide" id="fig-pipeline">
   <div class="pipe">
@@ -393,19 +393,19 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 5.</b> The whole procedure. The search is the only part of pruning that trains anything, and it throws those weights away, so every weight TinyPath starts from is copied from the teacher.</figcaption>
+  <figcaption><b>Figure 5.</b> The whole procedure. The search&rsquo;s short training runs are discarded, so every weight TinyPath starts from is copied from the teacher.</figcaption>
 </figure>
 
-<p>The teacher is a ViT-g/16, DINOv2&rsquo;s giant configuration with 16-pixel patches (Dosovitskiy et&nbsp;al., 2021; Oquab et&nbsp;al., 2024): 40 transformer blocks on a residual stream 1,536 channels wide, each with 24 attention heads of 64 dimensions and a SwiGLU MLP (Shazeer, 2020) whose hidden size, the width between its two projections, is 4,096. Prov-GigaPath pretrained it on 1.38 billion tiles from 171,189 slides (Xu et&nbsp;al., 2024). Prov-GigaPath&rsquo;s LongNet slide encoder is a separate model, and we leave it untouched.</p>
+<p>The teacher is a ViT-g/16 (Dosovitskiy et&nbsp;al., 2021; Oquab et&nbsp;al., 2024) pretrained on 1.38 billion tiles from 171,189 slides (Xu et&nbsp;al., 2024). It has 40 blocks on a 1,536-channel residual stream, each with 24 attention heads of 64 dimensions and a SwiGLU MLP (Shazeer, 2020) whose hidden size, the width between its two projections, is 4,096. Prov-GigaPath&rsquo;s separate LongNet slide encoder is left untouched.</p>
 
-<p>Pruning works from a 5,802-slide TCGA split made by patient and uses 4,640 of them: 580 supply the tiles that score importance, another 580 score architecture candidates, and 3,480 train the short probe each candidate gets, so no candidate is scored on tissue it was calibrated or trained on. The other 1,162 were held out. Distillation trains on all 6,093 TCGA slides H0-mini was distilled on, with nothing held out.</p>
+<p>Pruning uses 4,640 slides of a 5,802-slide TCGA split made by patient: 580 supply the tiles that score importance, 580 score architecture candidates and 3,480 train each candidate&rsquo;s short probe, so no candidate is scored on tissue it was calibrated or trained on. The other 1,162 are held out. Distillation trains on all 6,093 TCGA slides H0-mini was distilled on.</p>
 </section>
 
 <!-- ================= pruning ================= -->
 <section id="pruning">
 <h2>Pruning</h2>
 
-<p>Pruning runs in three steps: score which structural units carry the signal, search for how many of each the budget affords, and slice the survivors out of the teacher&rsquo;s tensors. How a fixed budget should be divided between attention, depth and feed-forward capacity is an empirical question, so each of the four axes is ranked on its own and the search decides how much of each survives (<a href="#fig-axes">Figure 6</a>). The head count is pinned to the width divided by 64, so attention width stays equal to residual width, as in the teacher.</p>
+<p>Pruning scores which structural units carry the signal, searches for how many of each the budget affords and slices the survivors out of the teacher. Each of the four axes is ranked on its own (<a href="#fig-axes">Figure 6</a>), and the head count is pinned to width divided by 64, keeping attention width equal to residual width as in the teacher.</p>
 
 <figure class="fig" id="fig-axes">
   <div class="panel">
@@ -432,12 +432,12 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 6.</b> The four axes of the cut. Depth survives nearly intact while the MLP hidden size shrinks by more than four fifths, the split the search ranked highest among the shapes that fit the budget.</figcaption>
+  <figcaption><b>Figure 6.</b> The four axes of the cut, as the search chose them. Depth survives nearly intact while the MLP hidden size shrinks by more than four fifths.</figcaption>
 </figure>
 
 <h3 id="scoring">Scoring what the teacher actually uses</h3>
 
-<p>We score <em>activations</em> rather than weights, since a component with large weights that rarely activates matters less than one with small weights that activates on everything. One forward pass over 4,096 calibration tiles, with hooks on every block, scores all four axes in under two minutes on one GPU (<a href="#fig-hooks">Figure 7</a>). The width axes average each component&rsquo;s absolute activation over tokens and accumulate it across tiles. For depth, Minitron offers two signals: the rise in perplexity when a block is deleted, which a ViT does not have, and block importance, which it takes from ShortGPT (Men et&nbsp;al., 2024; Muralidharan et&nbsp;al., 2024). Block importance measures how far a block rotates its input, so a block whose output is nearly parallel to its input scores near zero.</p>
+<p>We score <em>activations</em> rather than weights, since a component with large weights that rarely activates matters less than one with small weights that activates on everything. One hooked forward pass over 4,096 calibration tiles scores all four axes in under two minutes on one GPU (<a href="#fig-hooks">Figure 7</a>). For depth, a ViT has no perplexity, so we use Minitron&rsquo;s other signal, ShortGPT&rsquo;s block importance (Men et&nbsp;al., 2024; Muralidharan et&nbsp;al., 2024), which scores a block by how far it rotates its input.</p>
 
 <figure class="fig" id="fig-hooks">
   <div class="panel figsplit">
@@ -502,7 +502,7 @@ window.MathJax = {
       <div><span class="num">4</span><p><b>Whole blocks.</b> How far the block rotates its input.</p></div>
     </div>
   </div>
-  <figcaption><b>Figure 7.</b> Where the four families of hooks attach, drawn on one transformer block. Dashed lines are the residual connections, which is why the channel ranking has to be global: channel 900 has to mean the same thing in block 3 and block 37.</figcaption>
+  <figcaption><b>Figure 7.</b> Where the four families of hooks attach on one transformer block. Dashed lines are residual connections, which is why the channel ranking is global: channel 900 must mean the same thing in block 3 and block 37.</figcaption>
 </figure>
 
 <details>
@@ -515,41 +515,41 @@ window.MathJax = {
 
 <div class="eq">\[ s_{c}=\sqrt{\sum_{b} r_{b,c}^{2}}. \tag{2}\]</div>
 
-<p>The absolute value stops a component that fires in opposite directions on different tokens from cancelling itself to zero, and accumulating squares before taking the root makes the score independent of how the tiles were batched, so the ranking reproduces across machines.</p>
+<p>The absolute value stops a component that fires in opposite directions on different tokens from cancelling to zero, and accumulating squares before the root makes the score independent of batching, so the ranking reproduces across machines.</p>
 
-<p>Heads get one extra step before that reduction: the packed attention output is reshaped into 24 head vectors and each is reduced to its own L2 norm, so a head is scored as a unit rather than as 64 loose coordinates. MLP hidden dimensions are hooked on the input to the MLP&rsquo;s second projection, the one place where the gate and value branches have already been combined. That matters because SwiGLU&rsquo;s first projection produces both branches in one packed tensor: hidden dimension \(i\) owns rows \(i\) and \(i+m\) of that tensor, where \(m\) is the MLP hidden size, so both rows have to survive together or the dimension is meaningless. Channels are hooked at both LayerNorms of every block and summed over the whole trunk, because the residual stream is global and a channel cannot be kept in one block and dropped in another.</p>
+<p>Heads are scored as units: the packed attention output is reshaped into 24 head vectors, each reduced to its L2 norm. MLP hidden dimensions are hooked at the input to the second projection, where the gate and value branches are already combined. In SwiGLU&rsquo;s packed first projection, hidden dimension \(i\) owns rows \(i\) and \(i+m\), with \(m\) the MLP hidden size, so both rows are kept or cut together. Channels are hooked at both LayerNorms of every block and summed over the trunk, since a residual channel cannot be kept in one block and dropped in another.</p>
 
-<p>Depth is scored by block importance, which ShortGPT calls block influence (Men et&nbsp;al., 2024), the mean cosine change across the residual path,</p>
+<p>Depth is scored by block importance, ShortGPT&rsquo;s block influence (Men et&nbsp;al., 2024), the mean cosine change across the residual path,</p>
 
 <div class="eq">\[ \mathrm{BI}_{i}=1-\mathbb{E}_{b,n}\left[\cos\left(x^{(i)}_{\mathrm{in}},x^{(i)}_{\mathrm{out}}\right)\right], \tag{3}\]</div>
 
-<p>averaged over every token of every calibration tile. Blocks are then ranked on \(\mathrm{BI}\) across the whole network rather than within any local window.</p>
+<p>averaged over every token of every calibration tile. Blocks are ranked on \(\mathrm{BI}\) across the whole network, not within a local window.</p>
 </details>
 
 <h3 id="search">Choosing a shape, not a sparsity ratio</h3>
 
-<p>The budget is 100 million backbone parameters, from 5% over to 15% under, and 861 shapes fit it. A wide, shallow student and a narrow, deep one can have the same parameter count and very different representations, so the search builds every shape in the budget by top-\(k\) against the rankings, trains each for a 1,000-step probe, and ranks them by CKA against the teacher on held-out tiles (Kornblith et&nbsp;al., 2019), which compares the pattern of similarities among images and so works across widths. The winner is 640 channels, 33 blocks, 10 heads and an MLP hidden size of 768, at 103,630,848 parameters. Probing all 861 takes about five and a half hours on eight GPUs, and the probe earns its cost: untrained CKA would not have picked the winner, which scores lowest of the eventual top five before the probe and highest after it.</p>
+<p>The budget is 100 million backbone parameters, from 5% over to 15% under, and 861 shapes fit it. Shapes of equal size can differ in representation, so the search slices each by top-\(k\) against the rankings, trains it for a 1,000-step probe and ranks it by CKA against the teacher on held-out tiles (Kornblith et&nbsp;al., 2019). The winner is 640 channels, 33 blocks, 10 heads and an MLP hidden size of 768, at 103,630,848 parameters. The probe takes about five and a half hours on eight GPUs and matters: the winner ranks last of the eventual top five before it and first after.</p>
 
 <details>
 <summary>The search space and the three ranking signals</summary>
-<p>The grid is every hardware-friendly shape: widths from 64 to 1,536 in steps of 64, depths from 1 to 40, and MLP hidden sizes from 256 to 4,096 in steps of 256, with head width pinned at 64. That is 15,360 shapes, of which 861 land between 85 and 105 million parameters. Turning a shape into a candidate is pure top-\(k\): blocks come from the global block-importance ranking, residual channels from the single global channel ranking, and heads and MLP hidden dimensions from their own per-block rankings. No candidate is trained into existence. Each is a straight slice of the teacher.</p>
+<p>The grid is every hardware-friendly shape: widths from 64 to 1,536 in steps of 64, depths from 1 to 40 and MLP hidden sizes from 256 to 4,096 in steps of 256, with head width pinned at 64. Of its 15,360 shapes, 861 land between 85 and 105 million parameters. Each candidate is a straight top-\(k\) slice of the teacher: blocks and residual channels from their global rankings, heads and MLP hidden dimensions from their per-block rankings.</p>
 
 <p>The three signals, cheapest first:</p>
 
 <ul class="plain">
-  <li><b>Subspace cosine.</b> The candidate&rsquo;s pooled features against the teacher&rsquo;s, restricted to the surviving channels. It is nearly free, and since every candidate went on to the probe, here it is only a diagnostic.</li>
-  <li><b>Linear CKA.</b> Compares the geometry of the two feature sets without caring about width or channel order, so a 640-wide candidate can be scored against the 1,536-wide teacher directly.</li>
-  <li><b>CKA after a 1,000-step probe.</b> Each candidate trains briefly on the hidden-state losses alone, cycling through 2,048 tiles from the 3,480 probe slides, and CKA is recomputed on 512 tiles from the 580 architecture-validation slides, which appear in neither calibration nor the probe&rsquo;s training tiles. This is the ranking key, with parameter error as the tiebreak.</li>
+  <li><b>Subspace cosine.</b> The candidate&rsquo;s pooled features against the teacher&rsquo;s on the surviving channels. Nearly free, but only a diagnostic here, since every candidate went on to the probe.</li>
+  <li><b>Linear CKA.</b> Compares the geometry of two feature sets regardless of width or channel order, so a 640-wide candidate can be scored directly against the 1,536-wide teacher.</li>
+  <li><b>CKA after a 1,000-step probe.</b> Each candidate trains briefly on the hidden-state losses alone, cycling through 2,048 tiles from the 3,480 probe slides, then CKA is recomputed on 512 tiles from the 580 architecture-validation slides. This is the ranking key, with parameter error as the tiebreak.</li>
 </ul>
 
-<p>The margin at the top is thin. The winner scores 0.7721, and the next two, 768 channels over 25 blocks and 704 over 25, score 0.7717 and 0.7715, so the choice among them is closer to a tie than a verdict. Before the probe the same five shapes score between 0.2988 and 0.3095 with the winner lowest, and after it the winner also has the lowest probe loss of the five, 1.181 against 1.217 to 1.494.</p>
+<p>The margin at the top is thin: the winner scores 0.7721 and the next two, 768 channels over 25 blocks and 704 over 25, score 0.7717 and 0.7715. Before the probe the same five shapes score between 0.2988 and 0.3095, the winner lowest. After it the winner also has the lowest probe loss of the five, 1.181 against 1.217 to 1.494.</p>
 
-<p>The probe leaves out the DINO and iBOT heads: a 131,072-way prototype head is still mostly noise after 1,000 steps and would rank candidates on how their heads happened to initialize. The probe checkpoints are then discarded, and production re-slices the original frozen teacher.</p>
+<p>The probe leaves out the DINO and iBOT heads, since a 131,072-way prototype head is still mostly noise after 1,000 steps and would rank candidates by their initialization.</p>
 </details>
 
 <h3 id="slice">Making the cut</h3>
 
-<p>Slicing is bookkeeping: every index has to reach every tensor it touches, or the network ends up subtly wrong in a way no shape check will catch. Block importance kept blocks 0&ndash;5 and 13&ndash;39, so the seven it dropped form one contiguous band in the early-middle of the trunk (<a href="#fig-depth">Figure 8</a>). The first and last blocks were not forced to survive.</p>
+<p>Slicing is bookkeeping: every index must reach every tensor it touches, or the network ends up subtly wrong in a way no shape check will catch. Block importance kept blocks 0&ndash;5 and 13&ndash;39, so the seven dropped blocks form one band in the early-middle of the trunk (<a href="#fig-depth">Figure 8</a>). The first and last blocks were not forced to survive.</p>
 
 <figure class="fig" id="fig-depth">
   <div class="panel">
@@ -572,18 +572,18 @@ window.MathJax = {
 <details>
 <summary>What each index touches</summary>
 <ul class="plain">
-  <li>The 640 surviving residual channels are applied to the patch projection, the CLS token, the positional embedding, every LayerNorm, every block&rsquo;s input and output, and the final norm, which is everywhere the residual stream appears.</li>
+  <li>The 640 surviving residual channels index everywhere the residual stream appears: the patch projection, CLS token, positional embedding, every LayerNorm, every block&rsquo;s input and output, and the final norm.</li>
   <li>A surviving head takes its rows out of Q, K and V <em>and</em> the matching columns of the attention output projection.</li>
   <li>A surviving MLP hidden dimension takes its paired gate and value rows out of the packed first projection and the matching column of the second.</li>
   <li>Surviving blocks keep their own LayerNorm (Ba et&nbsp;al., 2016) and LayerScale (Touvron et&nbsp;al., 2021) parameters, in the teacher&rsquo;s original order.</li>
 </ul>
 </details>
 
-<p>The cut is made in one shot, as Minitron recommends for all but its most aggressive reduction (Muralidharan et&nbsp;al., 2024), so everything TinyPath holds at step zero came from the teacher rather than from search-time training.</p>
+<p>The cut is made in one shot, as Minitron recommends for all but its most aggressive reduction (Muralidharan et&nbsp;al., 2024).</p>
 
 <h3 id="cost">What the cut costs</h3>
 
-<p>Before a single training step, the sliced network is a bad model. On HEST it predicts gene expression at a mean Pearson correlation of 0.236 against the teacher&rsquo;s 0.387, and shown the same tissue on two different scanners it puts the match among its ten nearest neighbors 0.2% of the time, where the teacher manages 57% (<a href="#fig-init">Figure 9</a>).</p>
+<p>Before training, the sliced network scores 0.236 on HEST against the teacher&rsquo;s 0.387, and shown the same tissue on two scanners it puts the match among its ten nearest neighbors 0.2% of the time, against the teacher&rsquo;s 57% (<a href="#fig-init">Figure 9</a>).</p>
 
 <figure class="fig" id="fig-init">
   <div class="panel">
@@ -602,17 +602,17 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 9.</b> Frozen features from the sliced network before distillation, with the teacher and the finished TinyPath for scale. PLISM is in the current mode, which has no published Prov-GigaPath score, so the teacher&rsquo;s bar comes from our own run. Bars run from 0 to 1.</figcaption>
+  <figcaption><b>Figure 9.</b> The sliced network before distillation, with the teacher and the finished TinyPath for scale. PLISM is in its current mode, and the teacher&rsquo;s bar comes from our own run.</figcaption>
 </figure>
 
-<p>PLISM also shows what is wrong. Two scans of the same tissue position give the sliced network features with a median cosine similarity of 0.936, far above the teacher&rsquo;s 0.553, yet for almost every tile at least ten unrelated positions sit closer than its twin. The likeliest reading is that the network maps most tiles to nearly the same direction, though we did not measure unrelated pairs directly. Activation-based importance does not make a 10.95&times; structural cut survivable on its own, and whether a better ranking could is not something this experiment tests. What the cut gives distillation is a place to start.</p>
+<p>PLISM shows what is wrong. Two scans of the same tissue position give the sliced network a median cosine similarity of 0.936, far above the teacher&rsquo;s 0.553, yet for almost every tile at least ten unrelated positions sit closer than its twin, so the network likely maps most tiles to nearly the same direction. Activation-based importance alone does not make a 10.95&times; cut survivable.</p>
 </section>
 
 <!-- ================= distillation ================= -->
 <section id="distillation">
 <h2>Distillation</h2>
 
-<p>Distillation leaves the architecture alone and trains the sliced network for one epoch against the frozen teacher. The losses come from DINO, iBOT and DINOv2 (Caron et&nbsp;al., 2021; Zhou et&nbsp;al., 2022; Oquab et&nbsp;al., 2024), used as distillation losses rather than self-supervised objectives, plus the hidden-state matching that Minitron adds: four terms in all, two on what the student <em>says</em> about a tile and two on what it <em>computes</em> on the way there (<a href="#fig-losses">Figure 10</a>). Each tile is seen as two global views, and DINO&rsquo;s local crops (Caron et&nbsp;al., 2020; Caron et&nbsp;al., 2021) are not used.</p>
+<p>Distillation trains the sliced network for one epoch against the frozen teacher, using the DINO, iBOT and DINOv2 losses (Caron et&nbsp;al., 2021; Zhou et&nbsp;al., 2022; Oquab et&nbsp;al., 2024) as distillation losses plus Minitron&rsquo;s hidden-state matching: two terms on what the student <em>says</em> about a tile and two on what it <em>computes</em> on the way there (<a href="#fig-losses">Figure 10</a>). Each tile is seen as two global views, without DINO&rsquo;s local crops (Caron et&nbsp;al., 2020; Caron et&nbsp;al., 2021).</p>
 
 <figure class="fig" id="fig-losses">
   <div class="pipe">
@@ -642,18 +642,18 @@ window.MathJax = {
       </div>
     </div>
   </div>
-  <figcaption><b>Figure 10.</b> Two augmented views of every tile go through both models, and four losses read off the result. The teacher is frozen. What trains is the student, its neck and projection heads, and the hidden-state projection.</figcaption>
+  <figcaption><b>Figure 10.</b> Two augmented views of every tile go through both models, and four losses read off the result. Only the student, its neck and projection heads, and the hidden-state projection train.</figcaption>
 </figure>
 
 <p>Written out, the objective is</p>
 
 <div class="eq">\[ \mathcal{L}=\lambda_{\mathrm{DINO}}\mathcal{L}_{\mathrm{DINO}}+\lambda_{\mathrm{iBOT}}\mathcal{L}_{\mathrm{iBOT}}+\alpha\left(\lambda_{\mathrm{IS}}\mathcal{L}_{\mathrm{IS}}+\lambda_{\mathrm{emb}}\mathcal{L}_{\mathrm{emb}}\right), \tag{4}\]</div>
 
-<p>with every \(\lambda\) set to 1, so the only weight that matters is \(\alpha\), which is set automatically (Eq.&nbsp;11). \(\mathcal{L}_{\mathrm{DINO}}\) and \(\mathcal{L}_{\mathrm{iBOT}}\) are cross-entropies between distributions over 131,072 learned prototypes, measured in nats. \(\mathcal{L}_{\mathrm{IS}}\) and \(\mathcal{L}_{\mathrm{emb}}\) are cosine distances between hidden states, each distance in \([0,2]\), so \(\mathcal{L}_{\mathrm{IS}}\), a sum over five taps, spans \([0,10]\) and \(\mathcal{L}_{\mathrm{emb}}\) spans \([0,2]\). The two families are on different scales, which is why \(\alpha\) exists.</p>
+<p>with every \(\lambda\) set to 1, so the only weight that matters is \(\alpha\), set automatically (Eq.&nbsp;11). \(\mathcal{L}_{\mathrm{DINO}}\) and \(\mathcal{L}_{\mathrm{iBOT}}\) are cross-entropies, in nats, between distributions over 131,072 learned prototypes. \(\mathcal{L}_{\mathrm{IS}}\) and \(\mathcal{L}_{\mathrm{emb}}\) are cosine distances between hidden states, each in \([0,2]\), so \(\mathcal{L}_{\mathrm{IS}}\), summed over five taps, spans \([0,10]\). \(\alpha\) exists because the two families are on different scales.</p>
 
 <h3 id="prototypes">Where the distributions come from</h3>
 
-<p>Each model&rsquo;s features go through a <em>projection head</em>: a three-layer MLP down to a few hundred dimensions, L2 normalization, and a bias-free layer holding 131,072 vectors, each a unit direction times a learned length that starts at one. Those vectors are the <b>prototypes</b>. Each output of that layer is a cosine similarity scaled by a prototype&rsquo;s length, and a softmax over all of them turns one feature vector into a soft assignment of the tile across a learned vocabulary of visual patterns (<a href="#fig-proto">Figure 11</a>).</p>
+<p>Each model&rsquo;s features go through a <em>projection head</em>: a three-layer MLP down to a few hundred dimensions, L2 normalization and a bias-free layer of 131,072 <b>prototypes</b>. A softmax over the prototype scores turns a feature vector into a soft assignment over a learned vocabulary of visual patterns (<a href="#fig-proto">Figure 11</a>).</p>
 
 <figure class="fig" id="fig-proto">
   <div class="panel">
@@ -692,21 +692,21 @@ window.MathJax = {
     </svg>
     </div>
   </div>
-  <figcaption><b>Figure 11.</b> Top: how a token becomes a distribution. Bottom: the same tile scored by both models, over 20 of the prototypes. The teacher&rsquo;s low temperature makes its distribution nearly a vote for one prototype, and the cross-entropy drags the student&rsquo;s flatter one toward it.</figcaption>
+  <figcaption><b>Figure 11.</b> Top: how a token becomes a distribution. Bottom: one tile scored by both models over 20 of the prototypes. The teacher&rsquo;s low temperature makes its distribution nearly a vote for one prototype, and the cross-entropy pulls the student&rsquo;s flatter one toward it.</figcaption>
 </figure>
 
-<p>The prototypes start random, so no single one has to mean anything: the target is the <em>pattern of agreement</em> across all of them at once. That is a far richer signal than a label, and a far looser constraint than matching the direction of the teacher&rsquo;s hidden states, which is what the other two terms ask for.</p>
+<p>The prototypes start random, so no single one has to mean anything: the target is the <em>pattern of agreement</em> across all of them, a far richer signal than a label and a far looser constraint than matching hidden states.</p>
 
-<p>The teacher&rsquo;s distribution is <em>sharpened</em> by a low temperature, which is why its bars in <a href="#fig-proto">Figure 11</a> are nearly one spike, and held away from collapse by a running <em>center</em>. The student&rsquo;s is softmaxed at a flatter temperature. DINO relies on that asymmetry to keep the objective from degenerating (Caron et&nbsp;al., 2021), and with the teacher&rsquo;s trunk frozen, it protects the heads and prototypes rather than the features.</p>
+<p>The teacher&rsquo;s distribution is <em>sharpened</em> by a low temperature and held away from collapse by a running <em>center</em>, while the student&rsquo;s uses a flatter temperature. DINO relies on that asymmetry to keep the objective from degenerating (Caron et&nbsp;al., 2021), and with the teacher&rsquo;s trunk frozen, it protects the heads and prototypes rather than the features.</p>
 
 <details>
 <summary>Sharpening, centering, and the collapse failure mode</summary>
-<p>The teacher&rsquo;s logits have a running center subtracted and are divided by a temperature that warms from 0.04 to 0.07 over the first 16,519 steps, about a fifth of the epoch. The student&rsquo;s are softmaxed at a flat 0.1.</p>
+<p>The teacher&rsquo;s logits have a running center subtracted and are divided by a temperature that warms from 0.04 to 0.07 over the first fifth of the epoch. The student&rsquo;s use a flat 0.1.</p>
 
-<p>Sharpening alone has a degenerate solution: every tile lands on the same prototype, the loss goes to zero and the features carry no information. Centering prevents it. The center is a running average of the teacher&rsquo;s logits, so a prototype that keeps winning gets its score pushed down for the next batch, which drives the distribution back toward uniform.</p>
+<p>Sharpening alone would let every tile collapse onto one prototype, driving the loss to zero with features that carry no information. The center, a running average of the teacher&rsquo;s logits, prevents this by pushing down any prototype that keeps winning.</p>
 </details>
 
-<p>One departure matters more than the rest. Prov-GigaPath ships its backbone without DINO and iBOT projection heads, and frozen random heads would make the targets arbitrary, so we apply exponential-moving-average copies of the student&rsquo;s own heads to the teacher&rsquo;s features. The targets therefore move during training, which is the main reason we read little into the value of the training loss.</p>
+<p>One departure matters more than the rest. Prov-GigaPath ships no DINO or iBOT projection heads, and frozen random heads would make the targets arbitrary, so we apply exponential-moving-average copies of the student&rsquo;s own heads to the teacher&rsquo;s features, which makes the targets move during training.</p>
 
 <details>
 <summary>The heads, the center and the neck <span class="tag">Eq. 5</span></summary>
@@ -714,14 +714,14 @@ window.MathJax = {
 
 <div class="eq">\[ H(a,b)=-\sum_{k=1}^{131{,}072}\operatorname{softmax}\!\left(\frac{a-c}{\tau_{t}}\right)_{k}\log\operatorname{softmax}\!\left(\frac{b}{\tau_{s}}\right)_{k}. \tag{5}\]</div>
 
-<p>Both heads are three-layer MLPs with hidden width 2,048, a bottleneck of 384 for DINO and 256 for iBOT, L2 normalization, and a bias-free layer with weight normalization (Salimans and Kingma, 2016) onto 131,072 prototypes. Each head carries its own prototypes and its own center. The center is an exponential moving average of the teacher&rsquo;s logits with momentum 0.9, and the teacher-side heads are exponential moving averages of the student&rsquo;s heads, with a momentum that rises from 0.994 to 1.0 along a cosine over the epoch. The final prototype layer is frozen for the first 5,504 steps, 7% of the epoch, the standard DINO guard against an unstable codebook early in training. After that each prototype&rsquo;s length trains along with its direction, as in DINOv2.</p>
+<p>Each head is a three-layer MLP, L2 normalization and a bias-free, weight-normalized prototype layer (Salimans and Kingma, 2016), with its own prototypes and center. The teacher-side heads are EMAs of the student&rsquo;s, and the prototype layer is frozen for the first 7% of the epoch, the standard DINO guard against an unstable early codebook (<a href="#arch-objective">Table 11</a>).</p>
 
-<p>The student&rsquo;s trunk is 640 channels wide and the teacher&rsquo;s is 1,536, so a learned \(640\rightarrow1536\) <em>neck</em> sits between the student trunk and its heads, letting both models run identically shaped heads. It is initialized as a scatter matrix, so at step zero each student channel lands in the teacher channel it was sliced from. The neck is a separate layer from the hidden-state projection below, though both are \(640\rightarrow1536\) and start from the same channel map.</p>
+<p>A learned \(640\rightarrow1536\) <em>neck</em> between the student trunk and its heads lets both models run identically shaped heads. It is initialized as a scatter matrix, so at step zero each student channel lands in the teacher channel it was sliced from. The hidden-state projection below is a separate layer with the same shape and initialization.</p>
 </details>
 
 <h3 id="losses">The four terms</h3>
 
-<p>The four terms differ in which tensors they compare and where: the prototype losses see only the two ends of the network, while the hidden-state losses reach inside it (<a href="#fig-ladder">Figure 12</a>).</p>
+<p>The prototype losses see only the two ends of the network, while the hidden-state losses reach inside it (<a href="#fig-ladder">Figure 12</a>).</p>
 
 <figure class="fig wide" id="fig-ladder">
   <div class="panel scrollx">
@@ -751,63 +751,63 @@ window.MathJax = {
       <div class="lnode t">patch prototypes</div>
     </div>
   </div>
-  <figcaption><b>Figure 12.</b> Every place the two networks are compared, in forward order. The top three rows are raw activations, and the bottom two are probability distributions produced by projection heads. The hidden-state rows cross the width gap with a learned projection and the prototype rows with the student&rsquo;s neck. Both are initialized from the channel map that pruning produced, and the blocks pruning kept decide which teacher block each interior tap is paired with.</figcaption>
+  <figcaption><b>Figure 12.</b> Every place the two networks are compared, in forward order. The top three rows compare raw activations through a learned projection, the bottom two prototype distributions through the student&rsquo;s neck. Both maps start from pruning&rsquo;s channel map, and the blocks pruning kept decide which teacher block each interior tap pairs with.</figcaption>
 </figure>
 
 <p>The hidden-state comparison, for a student state \(h_{s}\), a teacher state \(h_{t}\) and the shared projection, a matrix \(W\) and bias \(\beta\) that carry 640 channels up to 1,536, is</p>
 
 <div class="eq">\[ d(h_{s},h_{t})=1-\cos\!\big(W\,\mathrm{LN}(h_{s})+\beta,\,\mathrm{LN}(h_{t})\big), \tag{6}\]</div>
 
-<p>averaged over tokens. LayerNorming both sides first makes it a question about direction rather than magnitude. With that and \(H(a,b)\) from Eq.&nbsp;5 in hand, the four terms are:</p>
+<p>averaged over tokens. LayerNorming both sides first makes it about direction rather than magnitude. With this and \(H(a,b)\) from Eq.&nbsp;5, the four terms are:</p>
 
 <dl class="losses">
   <div>
     <dt>\(\mathcal{L}_{\mathrm{DINO}}\): the CLS token, across views</dt>
     <dd>
       <div class="eq">\[ \mathcal{L}_{\mathrm{DINO}}=\tfrac{1}{2}\left[H(t^{1},s^{2})+H(t^{2},s^{1})\right] \tag{7}\]</div>
-      <p>The teacher&rsquo;s CLS distribution on view 1 is the target for the student&rsquo;s CLS on view 2, and the other way round. The crossing is the point: the student never matches a distribution computed from the crop it was shown, so it can only score well by describing the tissue in terms that survive a different crop and stain.</p>
+      <p>The teacher&rsquo;s CLS distribution on view 1 is the target for the student&rsquo;s CLS on view 2, and vice versa. The crossing is the point: the student never matches a distribution computed from the crop it was shown, so it scores well only by describing the tissue in terms that survive a different crop and stain.</p>
     </dd>
   </div>
   <div>
     <dt>\(\mathcal{L}_{\mathrm{iBOT}}\): the 196 patch tokens, within a view</dt>
     <dd>
       <div class="eq">\[ \mathcal{L}_{\mathrm{iBOT}}=\frac{1}{2P}\sum_{j=1}^{2}\sum_{p=1}^{196}H\!\left(t^{j}_{p},s^{j}_{p}\right) \tag{8}\]</div>
-      <p>The same comparison from a second head with its own prototypes and center, run at every patch position. Nothing crosses here, because patch \(p\) of one crop is not looking at the same tissue as patch \(p\) of the other. Following DINOv2&rsquo;s distillation recipe and H0-mini, we supervise all 196 patches rather than a masked subset (Oquab et&nbsp;al., 2024; Filiot et&nbsp;al., 2025), so where DINO supervises what the tile contains as a whole, iBOT makes the student preserve where things are.</p>
+      <p>The same comparison from a second head, at every patch position. Nothing crosses, because patch \(p\) of one crop does not show the same tissue as patch \(p\) of the other. Like DINOv2&rsquo;s distillation recipe and H0-mini, we supervise all 196 patches rather than a masked subset (Oquab et&nbsp;al., 2024; Filiot et&nbsp;al., 2025). DINO supervises what the tile contains, iBOT where things are.</p>
     </dd>
   </div>
   <div>
     <dt>\(\mathcal{L}_{\mathrm{IS}}\): five hidden states</dt>
     <dd>
       <div class="eq">\[ \mathcal{L}_{\mathrm{IS}}=\frac{1}{2}\sum_{j=1}^{2}\sum_{\ell=1}^{5} d\!\left(h^{(\ell),j}_{s},h^{(\ell),j}_{t}\right) \tag{9}\]</div>
-      <p>Five pairs: student blocks 6, 13, 19 and 26 against teacher blocks 13, 20, 26 and 33, plus the student&rsquo;s final tokens against the teacher&rsquo;s, summed over the five and averaged over the two views. Student block 13 is asked to reproduce teacher block 20 because it <em>is</em> teacher block 20, minus the channels, heads and MLP hidden dimensions that were cut out of it. This is the term that makes the run a repair job rather than a fresh training run.</p>
+      <p>Five pairs: student blocks 6, 13, 19 and 26 against teacher blocks 13, 20, 26 and 33, plus the final tokens, summed over the five and averaged over the two views. Student block 13 is asked to reproduce teacher block 20 because it <em>is</em> teacher block 20, minus the channels, heads and MLP hidden dimensions cut from it. This term makes the run a repair job rather than a fresh training run.</p>
     </dd>
   </div>
   <div>
     <dt>\(\mathcal{L}_{\mathrm{emb}}\): the tensor entering block 0</dt>
     <dd>
       <div class="eq">\[ \mathcal{L}_{\mathrm{emb}}=\frac{1}{2}\sum_{j=1}^{2} d\!\left(e^{j}_{s},e^{j}_{t}\right) \tag{10}\]</div>
-      <p>The same distance on the patch projection plus CLS token plus positional embedding, before any attention has happened, averaged over the two views. It gets its own term because it is the only one that targets the part of the student in front of the first block directly, while the others reach it only through backpropagation. Without it, the student could drift into a different input convention and then satisfy every other term by compensating for it downstream.</p>
+      <p>The same distance on the patch projection plus CLS token plus positional embedding, averaged over the two views. It is the only term that targets the layers before the first block directly, so the student cannot drift into a different input convention and compensate downstream.</p>
     </dd>
   </div>
 </dl>
 
 <details>
 <summary>Matching hidden states across unequal widths</summary>
-<p>Prototype logits are 131,072-dimensional on both sides, but hidden states are 640 channels on the student and 1,536 on the teacher, and there is no cosine between vectors of different lengths. So the single learned map in Eq.&nbsp;6, \(W\) with its bias \(\beta\), projects every student state up to teacher width. It is initialized as a scatter matrix with a zero bias: student channel \(i\) writes into the teacher channel it was sliced from, and every deleted coordinate starts at zero. The projection therefore begins as an identity on the kept subspace instead of a random map that has to be learned before the hidden loss means anything. The same map is shared across all five taps and the embedding term.</p>
+<p>The single learned map \(W,\beta\) in Eq.&nbsp;6 projects every student state, at all five taps and the embedding, from 640 channels up to the teacher&rsquo;s 1,536. It starts as a scatter matrix with zero bias, so student channel \(i\) writes into the teacher channel it was sliced from and the projection begins as an identity on the kept subspace, not a random map that must be learned before the hidden loss means anything.</p>
 </details>
 
 <details>
 <summary>Balancing the two objectives <span class="tag">Eq. 11</span></summary>
-<p>Prototype cross-entropy and cosine distance are not on the same scale, and their ratio drifts over training, so any fixed value of \(\alpha\) is wrong almost everywhere. The output-side quantity we balance against is not the cross-entropy itself but \(D_{\mathrm{KL}}\): the cross-entropy of Eq.&nbsp;5 less the entropy of the teacher&rsquo;s own distribution, summed over the DINO and iBOT heads and clamped at zero. That is the KL divergence from teacher to student, and unlike the cross-entropy it falls to zero when the two distributions agree. After each optimizer step we update exponential moving averages of that divergence and of the hidden loss and set</p>
+<p>Prototype cross-entropy and cosine distance are on different scales, and their ratio drifts, so any fixed \(\alpha\) is wrong almost everywhere. On the output side we balance \(D_{\mathrm{KL}}\), the cross-entropy of Eq.&nbsp;5 minus the teacher distribution&rsquo;s entropy, summed over both heads and clamped at zero. Unlike the cross-entropy, this teacher-to-student KL falls to zero when the distributions agree. After each optimizer step we update EMAs of it and of the hidden loss and set</p>
 
 <div class="eq">\[ \alpha\leftarrow\mathrm{clip}\left(\frac{\mathrm{EMA}\left[D_{\mathrm{KL}}\right]}{\mathrm{EMA}\left[\mathcal{L}_{\mathrm{hidden}}\right]},\;0,\;1000\right), \tag{11}\]</div>
 
-<p>with \(\mathcal{L}_{\mathrm{hidden}}=\lambda_{\mathrm{IS}}\mathcal{L}_{\mathrm{IS}}+\lambda_{\mathrm{emb}}\mathcal{L}_{\mathrm{emb}}\) and EMA momentum 0.9. Because the ratio is lagged and detached from the graph, a noisy microbatch cannot re-weight its own loss. The first window runs on the output terms alone, and from then on the two families stay comparable. Minitron uses the current-step ratio rather than a lagged one, which we found too noisy at this batch size. And because the numerator is a divergence, \(\alpha\) is near zero whenever the two prototype distributions nearly agree, however high the cross-entropy plateau in <a href="#fig-loss">Figure 13</a> sits, and grows only as they come apart.</p>
+<p>with \(\mathcal{L}_{\mathrm{hidden}}=\lambda_{\mathrm{IS}}\mathcal{L}_{\mathrm{IS}}+\lambda_{\mathrm{emb}}\mathcal{L}_{\mathrm{emb}}\) and EMA momentum 0.9. Because the ratio is lagged and detached from the graph, a noisy microbatch cannot re-weight its own loss. Minitron&rsquo;s current-step ratio was too noisy at our batch size. Because the numerator is a divergence, \(\alpha\) stays near zero while the prototype distributions agree, however high the cross-entropy in <a href="#fig-loss">Figure 13</a> sits.</p>
 </details>
 
 <h3 id="run">The training run</h3>
 
-<p>The budget is one epoch of AdamW (Loshchilov and Hutter, 2019): 3,854 warmup steps, then a cosine schedule from \(10^{-3}\) to \(10^{-6}\), at 1,024 tiles per optimizer step for 77,085 steps, 78.9 million tiles in all. Sharded across eight A100 GPUs with FSDP2, PyTorch&rsquo;s fully sharded data parallelism (Zhao et&nbsp;al., 2023), the run took 99 hours without interruption, about 790 GPU-hours.</p>
+<p>The budget is one epoch of AdamW (Loshchilov and Hutter, 2019): 3,854 warmup steps, then a cosine schedule from \(10^{-3}\) to \(10^{-6}\), at 1,024 tiles per step for 77,085 steps, 78.9 million tiles in all. Sharded across eight A100s with PyTorch&rsquo;s FSDP2 (Zhao et&nbsp;al., 2023), the run took 99 hours without interruption, about 790 GPU-hours.</p>
 
 <figure class="fig" id="fig-loss">
   <div class="panel chart-scroll">
@@ -850,10 +850,10 @@ window.MathJax = {
       </g>
     </svg>
   </div>
-  <figcaption><b>Figure 13.</b> Total objective over the epoch, as a rolling mean over 1,000 steps centered on each point, which is why the fall starts just before the dashed line. While the prototype layers are frozen the loss sits near 23.3, close to \(2\ln 131{,}072\approx23.6\), the cross-entropy of two heads that spread their mass evenly over every prototype. It falls to 12.9 within about 450 steps of their release, bottoms out near 8 about a seventh of the way through, and climbs back to about 13 over the second half. The shaded sliver marks a transient at steps 36,450 to 37,300 that spiked every loss term, and training recovered without intervention.</figcaption>
+  <figcaption><b>Figure 13.</b> Total objective, as a centered 1,000-step rolling mean, which is why the fall starts just before the dashed line. With the prototype layers frozen the loss sits near 23.3, close to \(2\ln 131{,}072\approx23.6\), the cross-entropy of two uniform heads. It falls to 12.9 within about 450 steps of their release, bottoms out near 8 and climbs back to about 13. The shaded sliver marks a transient at steps 36,450 to 37,300 that spiked every loss term and passed on its own.</figcaption>
 </figure>
 
-<p>That chart is a training diagnostic, not a scoreboard: the targets move with the student, the teacher temperature keeps warming for the first fifth of the epoch, and \(\alpha\) follows a running ratio, so the loss at one point in the run is not on the same scale as at another. Most of the climb from 8 back to 13 comes from the targets rather than the student. A prototype cross-entropy is the entropy of the target plus the divergence the student can reduce, and the targets soften as the temperature warms and spread over more prototypes as the EMA heads develop. By the end of the epoch the two prototype terms sum to about 10.9, of which only 1.9 is divergence. iBOT&rsquo;s divergence does rise in the second half, though, and \(\alpha\) rises with it, so the split is not clean. The repair shows up in the checkpoints instead (<a href="#fig-recovery">Figure 14</a>).</p>
+<p>The loss is a diagnostic, not a scoreboard: targets move with the student, the teacher temperature warms and \(\alpha\) follows a running ratio, so losses at different points are not on one scale. Most of the climb from 8 to 13 is the targets&rsquo; own entropy rising as they soften, and by the end only 1.9 of the prototype terms&rsquo; 10.9 is divergence, though iBOT&rsquo;s divergence does rise in the second half. The repair shows up in the checkpoints instead (<a href="#fig-recovery">Figure 14</a>).</p>
 
 <figure class="fig" id="fig-recovery">
   <div class="panel">
@@ -950,24 +950,24 @@ window.MathJax = {
       </svg>
     </div>
   </div>
-  <figcaption><b>Figure 14.</b> Frozen features from TinyPath&rsquo;s checkpoints at step zero and every tenth of the epoch, with the teacher dashed. PLISM is in the current mode and in TF32, and since that mode has no published Prov-GigaPath score, the teacher&rsquo;s line comes from our own run. The step-zero PLISM score is almost entirely the sliced network&rsquo;s high cosine similarity divided by four, not retrieval (<a href="#cost">What the cut costs</a>). Top-10 retrieval across scanners goes from 0.002 at step zero to 0.908 at the end (<a href="#tab-plism">Table 5</a>).</figcaption>
+  <figcaption><b>Figure 14.</b> TinyPath&rsquo;s checkpoints at step zero and every tenth of the epoch, with the teacher dashed. PLISM is in its current mode, and the teacher&rsquo;s line comes from our own run. The step-zero PLISM score is almost all cosine similarity, not retrieval.</figcaption>
 </figure>
 
-<p>The first tenth of the epoch, 7.9 million tiles, does almost all of the repair: HEST goes from 0.236 to 0.393, the best of the run and above the teacher&rsquo;s 0.387, PLISM from 0.235 to 0.555, and the EVA patch-task mean from 0.590 to 0.830. After that the benchmarks part ways. HEST stays within 0.002 of the teacher until six tenths of the way through and then drifts down to 0.382, and PLISM holds near 0.55 until seven tenths and falls to 0.520 as the learning rate anneals. The EVA mean wanders between 0.828 and 0.843, mostly because BACH and BreakHis are small (<a href="#tab-ckpt">Table 6</a>).</p>
+<p>The first tenth of the epoch, 7.9 million tiles, does almost all of the repair: HEST goes from 0.236 to 0.393, above the teacher&rsquo;s 0.387, PLISM from 0.235 to 0.555 and the EVA patch-task mean from 0.590 to 0.830. HEST then stays within 0.002 of the teacher until six tenths of the way through and drifts to 0.382, and PLISM holds near 0.55 until seven tenths and falls to 0.520 as the learning rate anneals. The EVA mean wanders between 0.828 and 0.843, mostly because BACH and BreakHis are small (<a href="#tab-ckpt">Table 6</a>).</p>
 
-<p>Some intermediate checkpoints beat the last one, but with nothing held out of distillation there is no independent set to choose one by, and choosing by the benchmarks would bias the comparisons, so we report the end of the epoch. HEST did inform one earlier decision, though: the run&rsquo;s optimizer settings were chosen over eleven alternatives in two-epoch runs on 100 TCGA slides, ranked by HEST with ties broken by CKA and an internal tissue-of-origin probe. All of this is one seed. And without a twin of the same shape trained from random weights under the same recipe, we cannot tell how much of the fast repair comes from the inherited weights rather than from the recipe.</p>
+<p>Some intermediate checkpoints beat the last, but choosing one by the benchmarks would bias the comparisons, so we report the end of the epoch. HEST did inform one earlier choice: the optimizer settings were picked over eleven alternatives in two-epoch runs on 100 TCGA slides, ranked mainly by HEST. All of this is one seed, and without a same-shape twin trained from random weights, we cannot tell how much of the fast repair comes from the inherited weights.</p>
 </section>
 
 <!-- ================= outlook ================= -->
 <section id="outlook">
 <h2>Next steps</h2>
 
-<p>TinyPath keeps nearly all of its teacher&rsquo;s accuracy at a tenth of the size. It gives up the most on HEST&rsquo;s colon and rectum tasks, on BreakHis and on MoNuSAC, the one benchmark here that reads patch tokens rather than the class token. What we cannot say yet is how much of its quality comes from pruning rather than from the distillation recipe. Next, we plan to run:</p>
+<p>TinyPath keeps nearly all of its teacher&rsquo;s accuracy at a tenth of the size, giving up the most on HEST&rsquo;s colon and rectum tasks, BreakHis and MoNuSAC. We cannot yet say how much of its quality comes from pruning rather than the distillation recipe. Next, we plan to run:</p>
 
 <ol class="limits">
-  <li><b>Multiple seeds.</b> One training run is enough to see the repair happen within a tenth of the epoch, not to separate encoders whose scores differ by a few thousandths.</li>
-  <li><b>Slide-level cohorts TinyPath has not seen.</b> It trained on nearly every slide in our survival and TCGA slide-level cohorts, and the one slide-level task outside TCGA, Camelyon16, asks only whether a lymph node holds metastasis. A larger non-TCGA cohort with clinical labels would let slide-level results do more than describe.</li>
-  <li><b>An ablation of the hidden-state losses.</b> \(\mathcal{L}_{\mathrm{IS}}\) and \(\mathcal{L}_{\mathrm{emb}}\) are the only terms that reach inside the network, so they are the likeliest route by which the inherited weights would speed up training. The pruning map also reaches the prototype losses through the neck, so a clean test crosses the two: hidden-state losses on or off, with the neck initialized from the pruning map or at random.</li>
+  <li><b>Multiple seeds.</b> One run shows the repair within a tenth of the epoch but cannot separate encoders a few thousandths apart.</li>
+  <li><b>Slide-level cohorts TinyPath has not seen.</b> It trained on nearly every slide in our TCGA cohorts, and Camelyon16, the one slide-level task outside TCGA, only asks whether a lymph node holds metastasis.</li>
+  <li><b>An ablation of the hidden-state losses.</b> They are the likeliest route by which the inherited weights speed up training, but the pruning map also reaches the prototype losses through the neck, so a clean test crosses hidden-state losses on or off with a neck initialized from the pruning map or at random.</li>
   <li><b>A two-step cut against this one-shot baseline.</b> Minitron found that pruning to an intermediate model first beat a single cut for its most aggressive reduction (Muralidharan et&nbsp;al., 2024), and ours is more aggressive still.</li>
 </ol>
 </section>
@@ -978,21 +978,21 @@ window.MathJax = {
 <details class="section-drawer" id="appendix-a">
 <summary>Appendix A: Benchmark protocols</summary>
 
-<p><b class="runin">Which weights we score.</b> TinyPath is scored from its live weights rather than their EMA average, with its 640-dimensional features read before the 640&rarr;1,536 neck (<a href="#prototypes">Distillation</a>). DINOv2 (Oquab et&nbsp;al., 2024) and H0-mini (Filiot et&nbsp;al., 2025) report the EMA copy instead. TinyPath&rsquo;s EMA copy is not uniformly better or worse: it scores 0.3830 against the live weights&rsquo; 0.3822 on HEST, 0.534 against 0.520 on PLISM in the current mode and 0.840 against 0.837 on EVA&rsquo;s patch tasks, but 0.564 against 0.569 on an earlier LUAD survival run that caps each slide at 4,096 tiles. We hold to one choice throughout rather than take the better of the two per benchmark.</p>
+<p><b class="runin">Which weights we score.</b> TinyPath is scored from its live weights, not their EMA, reading its 640-dimensional features before the neck. DINOv2 (Oquab et&nbsp;al., 2024) and H0-mini (Filiot et&nbsp;al., 2025) report the EMA copy. TinyPath&rsquo;s EMA copy is not uniformly better: 0.3830 against 0.3822 on HEST, 0.534 against 0.520 on PLISM&rsquo;s current mode and 0.840 against 0.837 on EVA&rsquo;s patch tasks, but 0.564 against 0.569 on an earlier LUAD survival run. We keep one choice throughout.</p>
 
-<p><b class="runin">HEST-Benchmark.</b> Nine spatial-transcriptomics cohorts from nine organs. Each spot&rsquo;s tile is encoded, the features are reduced to 256 dimensions with PCA, and a ridge regression predicts the 50 most variable genes. The score is the Pearson correlation for each gene, averaged over genes, over each task&rsquo;s patient-disjoint folds (27 in all), and finally over the nine tasks with equal weight. Every score but TinyPath&rsquo;s and GigaPath-Flash&rsquo;s is the current leaderboard&rsquo;s, which our pipeline reproduces: run through it, Prov-GigaPath matches the nine-task mean exactly and every task to within 0.0001. The original 2024 paper reported 0.3853 on an older release of the benchmark. GigaPath-Flash is not on the leaderboard, so we ran it ourselves through the same pipeline, with its teacher&rsquo;s transform.</p>
+<p><b class="runin">HEST-Benchmark.</b> Nine spatial-transcriptomics cohorts from nine organs. Each spot&rsquo;s tile features are reduced to 256 dimensions with PCA, and a ridge regression predicts the 50 most variable genes. The score is Pearson correlation averaged over genes, over each task&rsquo;s patient-disjoint folds (27 in all), then over the nine tasks. Every score but TinyPath&rsquo;s and GigaPath-Flash&rsquo;s is the current leaderboard&rsquo;s. Our pipeline reproduces Prov-GigaPath&rsquo;s nine-task mean exactly and every task to within 0.0001. The original 2024 paper reported 0.3853 on an older release.</p>
 
-<p><b class="runin">EVA.</b> kaiko.ai&rsquo;s evaluation framework, pinned at version 0.4.5 with its configurations unchanged. On the five patch tasks, BACH (Aresta et&nbsp;al., 2019), BreakHis (Spanhol et&nbsp;al., 2016), CRC (Kather et&nbsp;al., 2019), Gleason (Arvaniti et&nbsp;al., 2018) and PatchCamelyon (Veeling et&nbsp;al., 2018), a linear head is trained on frozen CLS features under five seeds, and the score is balanced accuracy. BreakHis is breast tumor images at 40&times; in four classes, two benign and two malignant, scored on its 339-image validation split, which puts the sampling standard error near 0.022 however tight the seed spread looks. Camelyon16-small asks whether a lymph-node slide from Camelyon16 (Ehteshami Bejnordi et&nbsp;al., 2017) holds metastasis, from up to 1,000 tissue patches per slide pooled by an attention-MIL head over 20 runs. MoNuSAC (Verma et&nbsp;al., 2021) segments four classes of nuclei with a convolutional decoder on the last block&rsquo;s patch tokens, scored by Dice over five runs. As on EVA&rsquo;s leaderboard, a task without a test split is scored on the validation split that also picks which checkpoint of its head is kept, and MoNuSAC&rsquo;s validation split is the release&rsquo;s test split, so the BACH, BreakHis, CRC, Gleason and MoNuSAC scores are model-selection scores rather than held-out test results. Prov-GigaPath&rsquo;s and H-optimus-0&rsquo;s scores are the leaderboard&rsquo;s (<a href="#tab-eva">Table 3</a>, <a href="#tab-eva-slide">Table 4</a>), which kaiko.ai recomputed in March 2025 when it changed EVA&rsquo;s learning-rate schedules and early-stopping patience. H0-mini&rsquo;s paper ran EVA before that change and has no BreakHis or Gleason score, so next to its published scores we report our own run of H0-mini at the pinned version (<a href="#tab-eva">Table 3</a>). GigaPath-Flash has no published EVA score, so we ran it ourselves at the same version (<a href="#tab-eva">Table 3</a>, <a href="#tab-eva-slide">Table 4</a>). The change itself is small: it moved none of H-optimus-0&rsquo;s scores on the three patch tasks in that paper by more than 0.003. Run through our pipeline, Prov-GigaPath lands within 0.005 of the leaderboard on the five patch tasks and on MoNuSAC, and 0.011 below it on Camelyon16-small, about a third of its run-to-run spread. EVA&rsquo;s leaderboard average leaves out BACH and needs three tasks we do not have, so there is no official average to quote, and every average here says which tasks it covers.</p>
+<p><b class="runin">EVA.</b> kaiko.ai&rsquo;s framework, pinned at version 0.4.5 with unchanged configurations. On the five patch tasks, BACH (Aresta et&nbsp;al., 2019), BreakHis (Spanhol et&nbsp;al., 2016), CRC (Kather et&nbsp;al., 2019), Gleason (Arvaniti et&nbsp;al., 2018) and PatchCamelyon (Veeling et&nbsp;al., 2018), a linear head on frozen CLS features is trained under five seeds and scored by balanced accuracy. BreakHis&rsquo;s 339-image validation split puts its sampling standard error near 0.022. Camelyon16-small (Ehteshami Bejnordi et&nbsp;al., 2017) pools up to 1,000 patches per slide with an attention-MIL head over 20 runs, and MoNuSAC (Verma et&nbsp;al., 2021) segments nuclei with a convolutional decoder on patch tokens, scored by Dice over five runs. As on EVA&rsquo;s leaderboard, BACH, BreakHis, CRC, Gleason and MoNuSAC are scored on the split that also selects the head checkpoint, so they are model-selection scores. Prov-GigaPath&rsquo;s and H-optimus-0&rsquo;s scores are the leaderboard&rsquo;s, recomputed in March 2025 when kaiko.ai changed EVA&rsquo;s learning-rate schedules and early-stopping patience. H0-mini&rsquo;s paper predates that change and lacks BreakHis and Gleason, so we ran H0-mini ourselves, as we did GigaPath-Flash, which has no published EVA score. The change moved H-optimus-0&rsquo;s scores on the patch tasks in H0-mini&rsquo;s paper by at most 0.003. Through our pipeline, Prov-GigaPath lands within 0.005 of the leaderboard on the patch tasks and MoNuSAC and 0.011 below it on Camelyon16-small, a third of its run-to-run spread.</p>
 
-<p><b class="runin">PLISM.</b> The same 8,139 tissue positions imaged under 91 combinations of staining protocol and slide scanner. For every pair of acquisitions, the two feature vectors of each position are compared by cosine similarity and by whether one retrieves the other among its ten nearest neighbors. The score is the mean of four medians over pairs, each rounded to three decimals first, as the benchmark&rsquo;s leaderboard code does: cosine similarity over all 4,095 pairs, and top-10 retrieval across scanners, across stains, and across both. No head is trained. Prov-GigaPath has two settings here. Its leaderboard entry (Owkin, 2025), 0.333, went up in March 2025, before the benchmark had any Prov-GigaPath code, and how it was made is not published. Feeding the 224-pixel tiles in unresized reproduces it, and we call this the older mode. The Prov-GigaPath code the benchmark added that May resizes each tile to 256 and center-crops it back to 224, the preprocessing in Prov-GigaPath&rsquo;s own README. This is the current mode, and the leaderboard entry was never regenerated with it. We run TinyPath in both modes, and report our own Prov-GigaPath run only in the current one, which has no published score (<a href="#tab-plism">Table 5</a>). Features are extracted in float16 autocast, which is how the benchmark&rsquo;s own extraction runs Prov-GigaPath, and on a sample of 256 tiles our teacher features are bit-identical to its output. In the older mode our teacher run matches all four published medians to three decimals and the published score itself. In the current mode it scores 0.320. Our scorer is a PyTorch port of the benchmark&rsquo;s, and rescoring these runs with the benchmark&rsquo;s own scorer leaves every score unchanged. The checkpoint sweep ran in TF32, which changes no score by more than 0.001. H0-mini&rsquo;s and H-optimus-0&rsquo;s scores are their leaderboard entries, made with the unresized input the benchmark&rsquo;s code gives them. Run that way through our pipeline, H0-mini reproduces its entry in every column. GigaPath-Flash is not on the leaderboard. Its model card prescribes the same resize as Prov-GigaPath&rsquo;s README, so we run it in both modes, in float16 autocast like its teacher.</p>
+<p><b class="runin">PLISM.</b> The same 8,139 tissue positions imaged under 91 stain and scanner combinations. For every pair of acquisitions, each position&rsquo;s two features are compared by cosine similarity and by top-10 retrieval, with no head trained. As in the leaderboard code, the score averages four medians over pairs, each rounded to three decimals (<a href="#tab-plism">Table 5</a>). Prov-GigaPath&rsquo;s leaderboard entry (Owkin, 2025), 0.333, predates the benchmark&rsquo;s Prov-GigaPath code, and how it was made is unpublished. Feeding the 224-pixel tiles in unresized reproduces it and all four of its medians, and we call this the older mode. The Prov-GigaPath code the benchmark added in May 2025 resizes each tile to 256 and center-crops back to 224, as in Prov-GigaPath&rsquo;s README. In this current mode, never used for the leaderboard, our Prov-GigaPath run scores 0.320. Features are extracted in float16 autocast, as the benchmark does for Prov-GigaPath, and our Prov-GigaPath features match its output bit for bit on 256 sampled tiles. Our PyTorch port of the scorer matches the original on every score, and running the checkpoint sweep in TF32 moves no score by more than 0.001. H0-mini&rsquo;s and H-optimus-0&rsquo;s scores are leaderboard entries made with unresized input, and through our pipeline H0-mini reproduces its entry in every column. GigaPath-Flash is not on the leaderboard, and its model card prescribes Prov-GigaPath&rsquo;s resize, so we run it in both modes.</p>
 
-<p><b class="runin">Prov-GigaPath&rsquo;s tasks.</b> The paper scored most of its slide-level tasks on Providence&rsquo;s own slides, which are not public, so we rebuilt them from its description on public TCGA slides. That gives six of its nine subtyping tasks: the other three need cohorts TCGA does not have, and esophagogastric subtyping has two classes because TCGA has no gastroesophageal-junction cohort. It also gives the paper&rsquo;s four mutation panels: five LUAD genes, the same five genes pan-cancer, a 17-gene pan-cancer panel (the paper&rsquo;s 18th marker, PD-L1, is measured by expression rather than mutation), and high tumor mutational burden split at the TCGA median. Frozen tile features feed a gated attention-MIL head (Ilse et&nbsp;al., 2018), trained and scored over 10 patient-disjoint folds on subsets of 1,503 TCGA slides, 1,438 of which TinyPath trained on. The paper ran its LongNet slide encoder (Ding et&nbsp;al., 2023) with random splits, so its numbers are not a matched comparison and are left out. Instead, Prov-GigaPath&rsquo;s tile features go through the same head and folds as TinyPath&rsquo;s (<a href="#tab-tcga">Table 8</a>).</p>
+<p><b class="runin">Prov-GigaPath&rsquo;s tasks.</b> The paper scored most slide-level tasks on Providence&rsquo;s private slides, so we rebuilt them on TCGA from its description. That gives six of its nine subtyping tasks, with esophagogastric reduced to two classes because TCGA has no gastroesophageal-junction cohort, and its four mutation panels: five LUAD genes, the same five pan-cancer, a 17-gene pan-cancer panel (the 18th marker, PD-L1, is measured by expression) and high tumor mutational burden split at the TCGA median. A gated attention-MIL head (Ilse et&nbsp;al., 2018) on frozen tile features is trained and scored over 10 patient-disjoint folds on subsets of 1,503 TCGA slides. The paper&rsquo;s own numbers, from its LongNet slide encoder (Ding et&nbsp;al., 2023) on random splits, are not comparable, so Prov-GigaPath&rsquo;s tile features go through the same head and folds as TinyPath&rsquo;s.</p>
 
-<p><b class="runin">PORPOISE.</b> The histology-only survival model of Chen et&nbsp;al. (2022), retrained on TCGA-LUAD with the authors&rsquo; released labels and five folds and scored by Harrell&rsquo;s c-index (Harrell et&nbsp;al., 1982). We rebuilt it as closely as the public slides allow, with every tile of a patient&rsquo;s slides in one bag, but the rebuild departs from the paper&rsquo;s protocol in three ways: 9 of its 453 patients are missing, tiles come from our own tissue detection and tiling rather than the paper&rsquo;s, and each fold trains five head seeds where the paper trained one. The published score reflects none of these, so we also run the paper&rsquo;s own ResNet-50 feature extractor and Prov-GigaPath through the same pipeline, and the ResNet-50 run lands inside the published 95% interval (<a href="#tab-surv">Table 7</a>). (A fourth difference is slight: in these runs the survival loss floors predicted probabilities at float32&rsquo;s machine epsilon, about \(1.19\times10^{-7}\), rather than at the released code&rsquo;s \(10^{-7}\), which changes the loss only for probabilities below that floor. Our code now matches, but these runs were not retrained.)</p>
+<p><b class="runin">PORPOISE.</b> The histology-only survival model of Chen et&nbsp;al. (2022), retrained on TCGA-LUAD with the authors&rsquo; released labels and five folds, with every tile of a patient&rsquo;s slides in one bag, and scored by Harrell&rsquo;s c-index (Harrell et&nbsp;al., 1982). Our rebuild departs from the paper in three ways: 9 of its 453 patients are missing, tiles come from our own tissue detection and tiling, and each fold trains five head seeds rather than one. So we also run the paper&rsquo;s ResNet-50 extractor through our rebuild, and that run lands inside the published 95% interval (<a href="#tab-surv">Table 7</a>). A fourth, slight difference: these runs floor survival-loss probabilities at float32&rsquo;s machine epsilon, about \(1.19\times10^{-7}\), rather than the released code&rsquo;s \(10^{-7}\). Our code now matches, but these runs were not retrained.</p>
 
-<p><b class="runin">H0-mini.</b> Scored through its 768-dimensional class token, as TinyPath is. Its paper scores HEST with the class token concatenated to the mean patch feature, so the class-token leaderboard entries used here, 0.3958 on HEST and 0.541 on PLISM, are not the numbers in its paper. Its published EVA scores do come from the paper, which has no BreakHis or Gleason score and ran EVA before the benchmark&rsquo;s current settings, so we also report our own EVA run of it. It was distilled for 105,000 steps at batch 2,048 on 43 million tiles from the same TCGA slides as TinyPath, about 215 million tiles seen in all.</p>
+<p><b class="runin">H0-mini.</b> Scored through its 768-dimensional class token, as TinyPath is. Its paper concatenates the class token with the mean patch feature on HEST, so the class-token leaderboard entries used here, 0.3958 on HEST and 0.541 on PLISM, are not its paper&rsquo;s numbers. It was distilled for 105,000 steps at batch 2,048 on 43 million tiles from the same TCGA slides as TinyPath, about 215 million tiles seen in all.</p>
 
-<p><b class="runin">GigaPath-Flash.</b> Scored through its 384-dimensional class token, as TinyPath is, from its released weights at a pinned revision. On 36 tiles from EVA&rsquo;s CRC task its features match those of Microsoft&rsquo;s official GigaPath-Flash code bit for bit, in float32 and float16. It was distilled from Prov-GigaPath on Providence slides, so unlike TinyPath it never saw TCGA, and its paper reports it only through its slide encoder, on PANDA and EBRAINS.</p>
+<p><b class="runin">GigaPath-Flash.</b> Scored through its 384-dimensional class token, as TinyPath is, from its released weights at a pinned revision and with its teacher&rsquo;s preprocessing. On 36 tiles from EVA&rsquo;s CRC task its features match Microsoft&rsquo;s official GigaPath-Flash code bit for bit, in float32 and float16. It never saw TCGA.</p>
 </details>
 
 <details class="section-drawer" id="appendix-b">
@@ -1002,7 +1002,7 @@ window.MathJax = {
 
 <figure class="fig wide" id="tab-headline">
 <table class="booktabs nums">
-  <caption><b>Table 1.</b> Frozen tile features on the three tile-level benchmarks. Higher is better. HEST is mean Pearson <i>r</i> over nine gene-expression tasks, and EVA is balanced accuracy averaged over five patch-classification tasks (<a href="#tab-eva">Table 3</a>). PLISM has two modes: the older one feeds its 224-pixel tiles in unresized, which reproduces Prov-GigaPath&rsquo;s leaderboard entry, and the current one resizes them to 256 and center-crops them back to 224, as the benchmark&rsquo;s code now does for Prov-GigaPath. GigaPath-Flash shares that preprocessing and is run in both. H0-mini&rsquo;s and H-optimus-0&rsquo;s own preprocessing leaves tiles unresized, so they have only the first. The other models&rsquo; scores are published except where marked as our runs: GigaPath-Flash has no published score on these benchmarks, the leaderboard never listed Prov-GigaPath in the current mode, and H0-mini&rsquo;s paper ran EVA before the benchmark&rsquo;s current settings and has no BreakHis or Gleason score. Bold is the best score in each column.</caption>
+  <caption><b>Table 1.</b> Frozen tile features. Higher is better. HEST is mean Pearson <i>r</i> over nine tasks, and EVA is balanced accuracy over five patch tasks (<a href="#tab-eva">Table 3</a>). PLISM&rsquo;s older mode feeds tiles in unresized, and its current mode resizes them to 256 and center-crops back to 224, as the benchmark now does for Prov-GigaPath. H0-mini and H-optimus-0 take unresized tiles only. Other models&rsquo; scores are published except where marked as our runs. Bold is the best in each column.</caption>
   <thead>
     <tr><th>Encoder</th><th>Parameters</th><th>HEST <i>r</i></th><th>EVA, 5 patch tasks</th><th>PLISM, older mode</th><th>PLISM, current mode</th></tr>
   </thead>
@@ -1020,7 +1020,7 @@ window.MathJax = {
 
 <figure class="fig wide" id="tab-hest">
 <table class="booktabs compact nums">
-  <caption><b>Table 2.</b> Pearson <i>r</i> averaged over the 50 most variable genes and over each task&rsquo;s patient-disjoint folds, with the nine tasks weighted equally in the mean. Every row but TinyPath&rsquo;s and GigaPath-Flash&rsquo;s comes from the current HEST leaderboard. GigaPath-Flash is not on it, so we ran it ourselves through the same pipeline. Prov-GigaPath is the teacher of TinyPath and GigaPath-Flash, and H-optimus-0 of H0-mini.</caption>
+  <caption><b>Table 2.</b> Pearson <i>r</i> averaged over the 50 most variable genes and each task&rsquo;s patient-disjoint folds, with the nine tasks weighted equally in the mean. Every row but TinyPath&rsquo;s and GigaPath-Flash&rsquo;s comes from the current HEST leaderboard.</caption>
   <thead>
     <tr><th>Encoder</th><th>IDC</th><th>PRAD</th><th>PAAD</th><th>SKCM</th><th>COAD</th><th>READ</th><th>CCRCC</th><th>LUNG</th><th>LYMPH</th><th>Mean</th></tr>
   </thead>
@@ -1038,7 +1038,7 @@ window.MathJax = {
 
 <figure class="fig wide" id="tab-eva">
 <table class="booktabs compact nums">
-  <caption><b>Table 3.</b> EVA patch classification: balanced accuracy, with the standard deviation over five head seeds. PatchCamelyon is scored on its test split and the others on EVA&rsquo;s validation split, which, as on EVA&rsquo;s leaderboard, also picks which head checkpoint is scored, so those four are model-selection scores rather than held-out test results. Prov-GigaPath&rsquo;s and H-optimus-0&rsquo;s rows come from EVA&rsquo;s leaderboard at the pinned version. H0-mini&rsquo;s published row comes from its paper, which ran EVA before the benchmark changed its learning-rate schedules and early-stopping patience in March 2025 and has no BreakHis or Gleason score, so we also report our own run of H0-mini at the pinned version. GigaPath-Flash has no published EVA score, so we ran it ourselves, also at the pinned version. The mean weights the five tasks equally and is not EVA&rsquo;s leaderboard average, which leaves out BACH.</caption>
+  <caption><b>Table 3.</b> Balanced accuracy, with the standard deviation over five head seeds. PatchCamelyon is scored on its test split, the others on the validation split that also picks the head checkpoint. Published rows come from EVA&rsquo;s leaderboard, except H0-mini&rsquo;s, from its paper, which predates EVA&rsquo;s March 2025 settings and lacks BreakHis and Gleason. The mean weights the five tasks equally and is not EVA&rsquo;s leaderboard average, which leaves out BACH.</caption>
   <thead>
     <tr><th>Encoder</th><th>BACH</th><th>BreakHis</th><th>CRC</th><th>Gleason</th><th>PatchCamelyon</th><th>Mean</th></tr>
   </thead>
@@ -1057,7 +1057,7 @@ window.MathJax = {
 
 <figure class="fig" id="tab-eva-slide">
 <table class="booktabs compact nums">
-  <caption><b>Table 4.</b> EVA beyond patch classification: test balanced accuracy over 20 attention-MIL runs on Camelyon16-small and the full Camelyon16, with up to 1,000 and 10,000 tissue patches per slide, and Dice over five runs on MoNuSAC under EVA&rsquo;s unchanged mask protocol, which uses MoNuSAC&rsquo;s release test split both to pick the decoder checkpoint and to score it. The published row comes from EVA&rsquo;s leaderboard at the pinned version, which has no full Camelyon16 entry, and we ran GigaPath-Flash ourselves. MoNuSAC&rsquo;s images are cut from TCGA slides, and TinyPath trained on slides from 18 of its 25 test patients, while neither the teacher nor GigaPath-Flash saw TCGA.</caption>
+  <caption><b>Table 4.</b> Test balanced accuracy over 20 attention-MIL runs on Camelyon16-small and full Camelyon16 (up to 1,000 and 10,000 patches per slide), and Dice over five runs on MoNuSAC, whose test split also picks the decoder checkpoint. The published row is EVA&rsquo;s leaderboard, which has no full Camelyon16 entry. MoNuSAC is cut from TCGA slides, and TinyPath trained on slides from 18 of its 25 test patients.</caption>
   <thead>
     <tr><th>Encoder</th><th>Camelyon16-small</th><th>Camelyon16</th><th>MoNuSAC Dice</th></tr>
   </thead>
@@ -1073,7 +1073,7 @@ window.MathJax = {
 
 <figure class="fig wide" id="tab-plism">
 <table class="booktabs compact nums">
-  <caption><b>Table 5.</b> PLISM by component. Each column is a median over acquisition pairs: cosine similarity between the two feature vectors of the same position over all 4,095 pairs, and top-10 retrieval accuracy across scanners (273 pairs), across stains (546) and across both (3,276). The score is the mean of the four. H0-mini and H-optimus-0 use their own preprocessing, which leaves tiles unresized, while GigaPath-Flash shares Prov-GigaPath&rsquo;s and is run in both modes. The other models&rsquo; rows are published except Prov-GigaPath&rsquo;s in the current mode, which the leaderboard never listed, and GigaPath-Flash&rsquo;s in both modes, since it is not on the leaderboard. We ran those ourselves. <a href="#appendix-a">Appendix A</a> describes the two modes and the precision of each run.</caption>
+  <caption><b>Table 5.</b> Each column is a median over acquisition pairs: cosine similarity over all 4,095 pairs, and top-10 retrieval across scanners (273 pairs), stains (546) and both (3,276). The score is their mean. H0-mini and H-optimus-0 take unresized tiles (<a href="#appendix-a">Appendix A</a>).</caption>
   <thead>
     <tr><th>Encoder</th><th>Score</th><th>Cosine, all</th><th>Top-10, scanner</th><th>Top-10, stain</th><th>Top-10, both</th></tr>
   </thead>
@@ -1098,7 +1098,7 @@ window.MathJax = {
 
 <figure class="fig wide" id="tab-ckpt">
 <table class="booktabs compact nums">
-  <caption><b>Table 6.</b> TinyPath at step zero and every tenth of the epoch, about 7,708 optimizer steps apart. The teacher column is Prov-GigaPath&rsquo;s published score. PLISM&rsquo;s current mode has none, so its teacher value comes from our own run under the same settings. PLISM is in the current mode and in TF32, and EVA is the mean of the five patch tasks. Bold is the best checkpoint in each row.</caption>
+  <caption><b>Table 6.</b> TinyPath at step zero and every tenth of the epoch, about 7,708 steps apart. PLISM is in its current mode and TF32, and EVA is the five-patch-task mean. The teacher column is published except for PLISM, which comes from our own run. Bold is the best checkpoint in each row.</caption>
   <thead>
     <tr><th>Epoch</th><th>0</th><th>0.1</th><th>0.2</th><th>0.3</th><th>0.4</th><th>0.5</th><th>0.6</th><th>0.7</th><th>0.8</th><th>0.9</th><th>1.0</th><th>Teacher</th></tr>
   </thead>
@@ -1116,7 +1116,7 @@ window.MathJax = {
 
 <figure class="fig" id="tab-surv">
 <table class="booktabs compact nums">
-  <caption><b>Table 7.</b> TCGA-LUAD overall survival with the histology-only PORPOISE model: Harrell&rsquo;s c-index on 444 of the paper&rsquo;s 453 patients, 157 of whom died, over its five released folds with five head seeds each. The fold mean carries its standard error, and the pooled value is one out-of-fold c-index with a 1,000-replicate patient bootstrap interval. Nine patients are missing because their slides lack the resolution metadata needed to tile them. The published value is the paper&rsquo;s attention-MIL on ResNet-50 features over its full cohort. Our rebuild departs from the paper&rsquo;s protocol in its cohort, tiling and head seeds (<a href="#appendix-a">Appendix A</a>), so the rows marked as our runs put the same ResNet-50 extractor and Prov-GigaPath through our pipeline.</caption>
+  <caption><b>Table 7.</b> Harrell&rsquo;s c-index for TCGA-LUAD overall survival on 444 of the paper&rsquo;s 453 patients, 157 of whom died, over its five released folds with five head seeds each. The other nine lack the slide resolution metadata needed for tiling. The fold mean carries its standard error, and the pooled value is one out-of-fold c-index with a 1,000-replicate patient bootstrap interval. The published value is the paper&rsquo;s ResNet-50 attention-MIL on its full cohort. Our rebuild departs from its protocol (<a href="#appendix-a">Appendix A</a>), so we reran ResNet-50 through it.</caption>
   <thead>
     <tr><th>Encoder</th><th>Fold mean</th><th>Pooled</th></tr>
   </thead>
@@ -1134,7 +1134,7 @@ window.MathJax = {
 
 <figure class="fig" id="tab-tcga">
 <table class="booktabs compact nums">
-  <caption><b>Table 8.</b> Prov-GigaPath&rsquo;s slide-level tasks, rebuilt on public TCGA slides because the paper scored most of them on Providence&rsquo;s private slides. Each column is macro AUROC over 10 patient-disjoint folds, from an attention-MIL head on frozen tile features. Subtyping averages five of the paper&rsquo;s subtyping tasks, with breast ductal-versus-lobular subtyping shown on its own, and mutations average its four panels (<a href="#appendix-a">Appendix A</a>). The paper&rsquo;s own scores come from its LongNet slide encoder with random splits, so we compare against our own run of Prov-GigaPath under the protocol here.</caption>
+  <caption><b>Table 8.</b> Macro AUROC over 10 patient-disjoint folds from an attention-MIL head on frozen tile features. Subtyping averages five of the paper&rsquo;s tasks, with breast ductal-versus-lobular shown apart, and mutations average its four panels (<a href="#appendix-a">Appendix A</a>). The paper&rsquo;s scores come from its LongNet slide encoder on random splits, so we compare against our own Prov-GigaPath run.</caption>
   <thead>
     <tr><th>Encoder</th><th>Subtyping, 5 tasks</th><th>BRCA subtype</th><th>Mutations, 4 panels</th></tr>
   </thead>
@@ -1173,7 +1173,7 @@ window.MathJax = {
 
 <figure class="fig wide">
 <table class="booktabs">
-  <caption><b>Table 9.</b> The teacher and the student. Compression is on backbone parameters. The student&rsquo;s 640&rarr;1,536 neck, its 640&rarr;1,536 hidden-state projection, the two projection heads and their EMA copies are training-time machinery and are not counted.</caption>
+  <caption><b>Table 9.</b> The teacher and the student. Compression counts backbone parameters only, not the neck, hidden-state projection, projection heads or their EMA copies, which exist only for training.</caption>
   <thead>
     <tr><th>Field</th><th>Teacher (Prov-GigaPath ViT-g/16)</th><th>Student (TinyPath)</th></tr>
   </thead>
@@ -1193,7 +1193,7 @@ window.MathJax = {
 </table>
 </figure>
 
-<p>The recorded <span class="mono">mlp_ratio</span> of 2.4 refers to the packed first projection, which is \(2\times768=1536\) wide because SwiGLU emits a gate branch and a value branch before they are combined, and 1,536 over a width of 640 is 2.4. The MLP hidden size is 768, counted after the two branches are combined. That is also where the pruning ranks its dimensions.</p>
+<p>The recorded <span class="mono">mlp_ratio</span> of 2.4 is the packed first projection, \(2\times768=1536\) wide because SwiGLU emits gate and value branches, over the width of 640. The MLP hidden size, 768, is counted after the branches combine, which is also where pruning ranks its dimensions.</p>
 
 <h3 id="arch-pruning">The pruning configuration</h3>
 <figure class="fig">
@@ -1217,7 +1217,7 @@ window.MathJax = {
 
 <h3 id="arch-objective">The objective</h3>
 
-<p>The two heads are identical in every respect except their bottleneck width and the tokens they read.</p>
+<p>The two heads differ only in bottleneck width and the tokens they read.</p>
 
 <figure class="fig">
 <table class="params">
@@ -1298,7 +1298,7 @@ window.MathJax = {
 <h3 id="arch-data">Data and splits</h3>
 <figure class="fig">
 <table class="params">
-  <caption><b>Table 15.</b> Data. The manifest and the shard set are checksummed, and the loader refuses any shard whose size or hash has drifted, so a rerun on another machine either reproduces the split exactly or fails loudly.</caption>
+  <caption><b>Table 15.</b> Data. The manifest and shards are checksummed, and the loader refuses any shard whose size or hash has drifted.</caption>
   <tbody>
     <tr><th>Source</th><td>TCGA diagnostic slides, the 6,093 that H0-mini was distilled on: 5,671 patients in 16 projects, tiled to <span class="mono">data/tcga_wsi/tile_shards_h0mini</span> (3.03 TB)</td></tr>
     <tr><th>Tiling</th><td>256 px at 0.5 &micro;m/px on an Otsu tissue mask (Otsu, 1979), keeping tiles at least 10% tissue, stored as JPEG at quality 95 in one HDF5 shard per slide</td></tr>
@@ -1314,7 +1314,7 @@ window.MathJax = {
 <h3 id="arch-cost">What the pipeline costs</h3>
 <figure class="fig">
 <table class="booktabs">
-  <caption><b>Table 16.</b> Cost of a full reproduction, in order, as wall-clock time and as GPU-hours (GPUs held &times; wall-clock hours). Distillation is 95% of the total on either measure. Not counted: re-hashing the shard set before each stage, most of a wall-clock hour each time, and tiling the slides, which is done once and cached.</caption>
+  <caption><b>Table 16.</b> Cost of a full reproduction as wall-clock time and GPU-hours (GPUs held &times; wall-clock hours). Distillation is 95% of the total on either measure. Not counted: re-hashing the shards before each stage, most of an hour each time, and tiling the slides, done once and cached.</caption>
   <thead>
     <tr><th>Stage</th><th>Resources</th><th>Wall-clock</th><th>GPU-hours</th></tr>
   </thead>
@@ -1358,7 +1358,7 @@ window.MathJax = {
 </table>
 </figure>
 
-<p>These are tools for <em>building</em> the student, not evidence about it: CKA is not biological performance, and moving EMA targets make the objective no fixed yardstick. The evidence is the separate evaluation, built mostly on published benchmarks, though not on entirely separate data: the <a href="#results">results</a> flag each benchmark whose slides TinyPath trained on.</p>
+<p>These are tools for <em>building</em> the student, not evidence about it: CKA is not biological performance, and moving EMA targets make the objective no fixed yardstick. The evidence is the evaluation, mostly on published benchmarks, and the <a href="#results">results</a> flag each benchmark whose slides TinyPath trained on.</p>
 </details>
 </section>
 
